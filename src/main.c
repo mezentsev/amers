@@ -6,7 +6,7 @@
 
 /** We're not using p4est->user_pointer here but take a shortcut.
  */
-static int          refine_level = 0;
+static int          refine_level = 4;
 
 /** Callback function to decide on refinement.
  *
@@ -59,7 +59,7 @@ main (int argc, char **argv)
     /* Create a forest from the inp file with name filename  */
     //conn = p4est_connectivity_read_inp (filename);
     /* Create a forest from cube */
-    conn = p8est_connectivity_new_brick(10, 20, 30, 0, 0, 0);
+    conn = p8est_connectivity_new_brick(3, 3, 3, 0, 0, 0);
 
     if (conn == NULL) {
         P4EST_LERRORF ("Failed to read a valid connectivity from %s\n", filename);
