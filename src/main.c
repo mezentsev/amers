@@ -1,12 +1,13 @@
 #include <p4est_to_p8est.h>
 #include <p8est_bits.h>
 #include <p8est_vtk.h>
+#include <time.h>
 
 #include "connectivity.h"
 
 /** We're not using p4est->user_pointer here but take a shortcut.
  */
-static int          refine_level = 4;
+static int          refine_level = 6;
 
 /** Callback function to decide on refinement.
  *
@@ -21,7 +22,7 @@ static int
 refine_fn (p4est_t * p4est, p4est_topidx_t which_tree,
            p4est_quadrant_t * quadrant)
 {
-    return 1;
+    return rand() % 2;
 }
 
 /** The main function of the step2 example program.
@@ -39,6 +40,7 @@ main (int argc, char **argv)
     p4est_t            *p4est;
     p4est_connectivity_t *conn;
     const char         *filename;
+    srand(time(NULL));
 
     /* Initialize MPI; see sc_mpi.h.
      * If configure --enable-mpi is given these are true MPI calls.
@@ -59,7 +61,7 @@ main (int argc, char **argv)
     /* Create a forest from the inp file with name filename  */
     //conn = p4est_connectivity_read_inp (filename);
     /* Create a forest from cube */
-    conn = p8est_connectivity_new_brick(3, 3, 3, 0, 0, 0);
+    conn = p8est_connectivity_new_unitcube();
 
     if (conn == NULL) {
         P4EST_LERRORF ("Failed to read a valid connectivity from %s\n", filename);
@@ -94,7 +96,7 @@ main (int argc, char **argv)
      */
     balance = 1;
     if (balance) {
-        p4est_balance (p4est, P4EST_CONNECT_FACE, NULL);
+        p4est_balance (p4est, P4EST_CONNECT_CORNER, NULL);
         p4est_partition (p4est, 0, NULL);
     }
 
