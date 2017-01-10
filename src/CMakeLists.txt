@@ -1,11 +1,14 @@
-set(SOURCE main.c hw32.h)
+set(ADVACTION_SOURCE advaction.c)
+set(AMR_SOURCE amr.c)
 
 include_directories(${P4EST_INCLUDE_DIR} ${P4EST_LIBRARY})
 link_directories(${P4EST_LIBRARY})
 
-#add_executable(amr main.c connectivity.c connectivity.h)
-add_executable(amr balance_seeds.c connectivity.c connectivity.h)
+add_executable(advaction ${ADVACTION_SOURCE})
+target_link_libraries (advaction p4est sc)
+
+add_executable(amr ${AMR_SOURCE})
 target_link_libraries (amr p4est sc)
 
 # install them
-install (TARGETS amr RUNTIME DESTINATION bin)
+#install (TARGETS advaction RUNTIME DESTINATION bin)
