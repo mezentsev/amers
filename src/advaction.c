@@ -100,9 +100,7 @@ get_midpoint (p4est_t * p4est, p4est_topidx_t which_tree, p4est_quadrant_t * q, 
 
     p4est_qcoord_to_vertex (p4est->connectivity, which_tree,
                             q->x + half_length, q->y + half_length,
-#ifdef P4_TO_P8
-            q->z + half_length,
-#endif
+                            q->z + half_length,
                             xyz);
 }
 
@@ -1118,7 +1116,7 @@ main (int argc, char **argv)
     p4est_partition (p4est, partforcoarsen, NULL);
 
     /* time step */
-    timestep(p4est, 0.1);
+    timestep(p4est, 0.2);
 
     /* Destroy the p4est and the connectivity structure. */
     p4est_destroy (p4est);
