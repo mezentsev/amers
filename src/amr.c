@@ -7,8 +7,6 @@
 typedef struct data
 {
     double              u;             // the state variable
-    double              du[P4EST_DIM]; // the spatial derivatives
-    double              dudt;          // the time derivative
 } data_t;
 
 // Describes current problem
@@ -18,8 +16,9 @@ typedef struct ctx
     double              width;
 } ctx_t;
 
-/// Compute the value and derivatives of the initial condition.
-static double init_condition(double x[3], double du[3], ctx_t *ctx)
+/// Compute the value of the initial condition.
+static double
+init_condition(double x[3], ctx_t *ctx)
 {
     int                 i;
     double              *c = ctx->center;
@@ -36,17 +35,12 @@ static double init_condition(double x[3], double du[3], ctx_t *ctx)
     arg = -(1. / 2.) * r2 / bump_width / bump_width;
     retval = exp (arg);
 
-    if (du) {
-        for (i = 0; i < P4EST_DIM; i++) {
-            du[i] = -(1. / bump_width / bump_width) * d[i] * retval;
-        }
-    }
-
     return retval;
 }
 
 /// Get the coordinates of the midpoint of a quadrant.
-static void get_midpoint(p8est_t *p4est, p4est_topidx_t tree, p8est_quadrant_t *q, double xyz[3])
+static void
+get_midpoint(p8est_t *p4est, p4est_topidx_t tree, p8est_quadrant_t *q, double xyz[3])
 {
     p4est_qcoord_t half_length = P4EST_QUADRANT_LEN(q->level) / 2;
 
@@ -58,66 +52,8 @@ static void get_midpoint(p8est_t *p4est, p4est_topidx_t tree, p8est_quadrant_t *
                             xyz);
 }
 
-static void write_solution(p4est_t *p4est)
-{
-    char                filename[BUFSIZ] = { "amr\0" };
-    sc_array_t          *u_interp;
-    p4est_locidx_t      numquads;
-
-    //snprintf (filename, 8, "ex_%04d", timestep);
-
-    numquads = p4est->local_num_quadrants;
-
-    /* create a vector with one value for the corner of every local quadrant
-     * (the number of children is always the same as the number of corners) */
-    u_interp = sc_array_new_size (sizeof (double), numquads * P4EST_CHILDREN);
-
-    /* Use the iterator to visit every cell and fill in the solution values.
-     * Using the iterator is not absolutely necessary in this case: we could
-     * also loop over every tree (there is only one tree in this case) and loop
-     * over every quadrant within every tree, but we are trying to demonstrate
-     * the usage of p4est_iterate in this example */
-    p4est_iterate(p4est, NULL,   /* we don't need any ghost quadrants for this loop */
-                  (void *) u_interp,     /* pass in u_interp so that we can fill it */
-                  //interpolate_solution,    /* callback function that interpolates from the cell center to the cell corners, defined above */
-                  NULL,
-                  NULL,          /* there is no callback for the faces between quadrants */
-                  NULL,          /* there is no callback for the edges between quadrants */
-                  NULL);         /* there is no callback for the corners between quadrants */
-
-    /* create VTK output context and set its parameters */
-    p4est_vtk_context_t *context = p4est_vtk_context_new (p4est, filename);
-    p4est_vtk_context_set_scale (context, 0.99);  /* quadrant at almost full scale */
-
-    /* begin writing the output files */
-    context = p4est_vtk_write_header (context);
-    SC_CHECK_ABORT (context != NULL,
-                    P4EST_STRING "_vtk: Error writing vtk header");
-
-    /* do not write the tree id's of each quadrant
-     * (there is only one tree in this example) */
-    context = p4est_vtk_write_cell_dataf (context, 0, 1,  /* do write the refinement level of each quadrant */
-                                          1,      /* do write the mpi process id of each quadrant */
-                                          0,      /* do not wrap the mpi rank (if this were > 0, the modulus of the rank relative to this number would be written instead of the rank) */
-                                          0,      /* there is no custom cell scalar data. */
-                                          0,      /* there is no custom cell vector data. */
-                                          context);       /* mark the end of the variable cell data. */
-    SC_CHECK_ABORT (context != NULL,
-                    P4EST_STRING "_vtk: Error writing cell data");
-
-    /* write one scalar field: the solution value */
-    context = p4est_vtk_write_point_dataf (context, 1, 0, /* write no vector fields */
-                                           "solution", u_interp, context);        /* mark the end of the variable cell data. */
-    SC_CHECK_ABORT (context != NULL,
-                    P4EST_STRING "_vtk: Error writing cell data");
-
-    const int           retval = p4est_vtk_write_footer (context);
-    SC_CHECK_ABORT (!retval, P4EST_STRING "_vtk: Error writing footer");
-
-    sc_array_destroy (u_interp);
-}
-
-static void init(p4est_t *p4est, p4est_topidx_t which_tree, p4est_quadrant_t *q)
+static void
+init(p4est_t *p4est, p4est_topidx_t which_tree, p4est_quadrant_t *q)
 {
     /* the data associated with a forest is accessible by user_pointer */
     ctx_t *ctx = (ctx_t *) p4est->user_pointer;
@@ -127,7 +63,36 @@ static void init(p4est_t *p4est, p4est_topidx_t which_tree, p4est_quadrant_t *q)
 
     get_midpoint(p4est, which_tree, q, midpoint);
     /* initialize the data */
-    data->u = init_condition (midpoint, data->du, ctx);
+    data->u = init_condition(midpoint, ctx);
+}
+
+/// http://p4est.github.io/api/p8est_8h.html#aeb61645ae5dbbdbcb3c4f8a8810b4ecf
+static int
+refine_fn (p8est_t *p8est,
+           p4est_topidx_t which_tree,
+           p8est_quadrant_t *q)
+{
+    ctx_t *ctx = (ctx_t *) p8est->user_pointer;
+    double midpoint[3];
+    double h = (double) P4EST_QUADRANT_LEN (q->level) / (double) P4EST_ROOT_LEN;
+
+    get_midpoint(p8est, which_tree, q, midpoint);
+
+    if (pow(midpoint[0] - ctx->center[0], 2.) +
+        pow(midpoint[1] - ctx->center[1], 2.) +
+        pow(midpoint[2] - ctx->center[2], 2.) <= ctx->width &&
+            q->level < 7)
+        return 1;
+
+    return 0;
+}
+
+static int
+coarsen_fn (p8est_t *p8est,
+            p4est_topidx_t which_tree,
+            p8est_quadrant_t **children)
+{
+    return 0;
 }
 
 int
@@ -136,8 +101,8 @@ main (int argc, char **argv)
     int                     mpiret;
     sc_MPI_Comm             mpicomm;
     ctx_t                   ctx;
-    p4est_t                 *p4est;
-    p4est_connectivity_t    *conn;
+    p8est_t                 *p8est;
+    p8est_connectivity_t    *conn;
 
     ctx.center[0] = 0.5;
     ctx.center[1] = 0.5;
@@ -161,7 +126,7 @@ main (int argc, char **argv)
     conn = p8est_connectivity_new_periodic();
 
 
-    p4est = p4est_new_ext (mpicomm, /* communicator */
+    p8est = p8est_new_ext (mpicomm, /* communicator */
                            conn,    /* connectivity */
                            0,       /* minimum quadrants per MPI process */
                            4,       /* minimum level of refinement */
@@ -170,17 +135,17 @@ main (int argc, char **argv)
                            init,  /* initializes data */
                            (void *) (&ctx));              /* context */
 
-    //p4est_refine(p4est, 0, NULL, init);
-    //p8est_coarsen(p8est, 0, NULL, init);
+    p8est_refine(p8est, 1, refine_fn, init);
+    p8est_coarsen(p8est, 1, coarsen_fn, init);
 
-    //p4est_balance(p4est, P4EST_CONNECT_FACE, init);
-    //p4est_partition (p4est, 0, NULL);
+    p8est_balance(p8est, P4EST_CONNECT_FACE, init);
+    p8est_partition (p8est, 1, NULL);
 
-    write_solution(p4est);
+    p8est_vtk_write_file (p8est, NULL, "amr_test_vtk");
 
     // clear
-    p4est_destroy (p4est);
-    p4est_connectivity_destroy (conn);
+    p8est_destroy(p8est);
+    p8est_connectivity_destroy(conn);
 
     /* Verify that allocations internal to p4est and sc do not leak memory.
      * This should be called if sc_init () has been called earlier. */
