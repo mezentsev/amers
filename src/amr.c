@@ -78,10 +78,13 @@ refine_fn (p8est_t *p8est,
 
     get_midpoint(p8est, which_tree, q, midpoint);
 
-    if (pow(midpoint[0] - ctx->center[0], 2.) +
-        pow(midpoint[1] - ctx->center[1], 2.) +
-        pow(midpoint[2] - ctx->center[2], 2.) <= ctx->width &&
-            q->level < 7)
+    double l = pow(midpoint[0] - ctx->center[0], 2.) +
+               pow(midpoint[1] - ctx->center[1], 2.) +
+               pow(midpoint[2] - ctx->center[2], 2.);
+
+    if (l < ctx->width &&
+        l > ctx->width / 2 &&
+        h > ctx->width * ctx->width)
         return 1;
 
     return 0;
