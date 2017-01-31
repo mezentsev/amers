@@ -10,10 +10,9 @@
  */
 typedef struct data
 {
-    double              s1;
+    double              f1;
+    double              f2;
     double              v;
-    double              val;
-    double              s3;
 } data_t;
 
 /**
@@ -88,14 +87,11 @@ init(p8est_t *p4est, p4est_topidx_t which_tree, p8est_quadrant_t *q)
     ctx_t       *ctx = (ctx_t *) p4est->user_pointer;
     /* the data associated with a quadrant is accessible by p.user_data */
     data_t      *data = (data_t *) q->p.user_data;
-    double      midpoint[3];
 
-    get_midpoint(p4est, which_tree, q, midpoint);
     /* initialize the data */
-    data->s1 = init_condition(midpoint, ctx);
-    data->v = 0;
-    data->val = 1;
-    data->s3 = 0;
+    data->f1 = 0;
+    data->f2 = 0;
+    data->v  = 0;
 }
 
 static int
@@ -114,7 +110,7 @@ refine_fn (p8est_t *p8est,
                pow(midpoint[2] - ctx->center[2], 2.);
 
     if (l < ctx->width &&
-        h > ctx->width * ctx->width)
+        h > pow(ctx->width, 2.))
         return 1;
 
     return 0;
@@ -156,7 +152,7 @@ volume_iter(p8est_iter_volume_info_t *info, void *user_data)
  *                       was populated by p4est_ghost_exchange_data()
  */
 static void
-face_iter(p8est_iter_face_info_t *info, void *user_data)
+face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
 {
     int                 i, j;
     p8est_t             *p4est = info->p4est;
@@ -170,6 +166,7 @@ face_iter(p8est_iter_face_info_t *info, void *user_data)
     double              h, facearea;
     int                 which_side;
     int                 which_dir;
+    double              midpoint[3];
     p8est_iter_face_side_t *side[2];
     sc_array_t          *sides = &(info->sides);
 
@@ -198,7 +195,7 @@ face_iter(p8est_iter_face_info_t *info, void *user_data)
                 else {
                     udata = (data_t *) side[i]->is.hanging.quad[j]->p.user_data;
                 }
-                uavg[i] += udata->val;
+                uavg[i] += udata->v;
             }
             //uavg /= P8EST_HALF;
         }
@@ -210,7 +207,7 @@ face_iter(p8est_iter_face_info_t *info, void *user_data)
                 udata = (data_t *) side[i]->is.full.quad->p.user_data;
                 //quadrant_print(side[which_side]->is.full.quad, 0);
             }
-            uavg[i] = udata->val;
+            uavg[i] = udata->v;
         }
     }
 
@@ -219,9 +216,11 @@ face_iter(p8est_iter_face_info_t *info, void *user_data)
             /* there are 2^(d-1) (P4EST_HALF) subfaces */
             for (j = 0; j < P8EST_HALF; j++) {
                 quad = side[i]->is.hanging.quad[j];
+                //get_midpoint(p4est, quad->p.which_tree, quad, midpoint);
+
                 if (!side[i]->is.hanging.is_ghost[j]) {
                     udata = (data_t *) quad->p.user_data;
-                    udata->s3 += uavg[i];
+                    udata->f1 += uavg[i];
                 }
             }
         }
@@ -229,7 +228,7 @@ face_iter(p8est_iter_face_info_t *info, void *user_data)
             quad = side[i]->is.full.quad;
             if (!side[i]->is.full.is_ghost) {
                 udata = (data_t *) quad->p.user_data;
-                udata->s3 += uavg[i];
+                udata->f1 += uavg[i];
             }
         }
     }
@@ -267,7 +266,7 @@ get_solution(p8est_iter_volume_info_t *info, void *user_data)
 
     for (i = 0; i < P8EST_CHILDREN; i++) {
         this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
-        this_u_ptr[0] = data->s3;
+        this_u_ptr[0] = data->v;
     }
 }
 
@@ -319,7 +318,7 @@ write_solution(p8est_t *p8est)
                     P4EST_STRING "_vtk: Error writing cell data");
 
     /* write one scalar field: the solution value */
-    context = p4est_vtk_write_point_dataf(context, 1, 0, /* write no vector fields */
+    context = p8est_vtk_write_point_dataf(context, 1, 0, /* write no vector fields */
                                           "solution",
                                           u_interp,
                                           context);        /* mark the end of the variable cell data. */
@@ -348,10 +347,17 @@ solve(p8est_t *p8est)
 
     p8est_iterate(p8est, ghost, (void *) ghost_data,
                   volume_iter,
-                  face_iter,
+                  face_iter_f1,
                   NULL,
                   NULL
     );
+
+    /*p8est_iterate(p8est, ghost, (void *) ghost_data,
+                  volume_iter,
+                  face_iter_f2,
+                  NULL,
+                  NULL
+    );*/
 
     /* Test face neighbor iterator
     for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid) {
