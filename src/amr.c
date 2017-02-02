@@ -13,6 +13,7 @@ typedef struct data
     double              f1;
     double              f2;
     double              v;
+    double              e;
 } data_t;
 
 /**
@@ -32,30 +33,6 @@ quadrant_print(p8est_quadrant_t *q, int rank)
     p4est_qcoord_t y = (q->y) >> (P4EST_MAXLEVEL - q->level);
     p4est_qcoord_t z = (q->z) >> (P4EST_MAXLEVEL - q->level);
     printf("[p4est %d] x=%d y=%d z=%d level=%d\n", rank, x, y, z, q->level);
-}
-
-/**
- * Compute the value of the initial condition.
- */
-static double
-init_condition(double x[3], ctx_t *ctx)
-{
-    int                 i;
-    double              *c = ctx->center;
-    double              bump_width = ctx->width;
-    double              r2, d[P4EST_DIM];
-    double              arg, retval;
-
-    r2 = 0.;
-    for (i = 0; i < P4EST_DIM; i++) {
-        d[i] = x[i] - c[i];
-        r2 += d[i] * d[i];
-    }
-
-    arg = -(1. / 2.) * r2 / bump_width / bump_width;
-    retval = exp (arg);
-
-    return retval;
 }
 
 /**
@@ -92,6 +69,15 @@ init(p8est_t *p4est, p4est_topidx_t which_tree, p8est_quadrant_t *q)
     data->f1 = 0;
     data->f2 = 0;
     data->v  = 0;
+    data->e  = 0;
+}
+
+static int
+refine_always (p8est_t *p8est,
+               p4est_topidx_t which_tree,
+               p8est_quadrant_t *q)
+{
+    return 1;
 }
 
 static int
@@ -102,12 +88,13 @@ refine_fn (p8est_t *p8est,
     ctx_t *ctx = (ctx_t *) p8est->user_pointer;
     double midpoint[3];
     double h = (double) P4EST_QUADRANT_LEN (q->level) / (double) P4EST_ROOT_LEN;
+    double l;
 
     get_midpoint(p8est, which_tree, q, midpoint);
 
-    double l = pow(midpoint[0] - ctx->center[0], 2.) +
-               pow(midpoint[1] - ctx->center[1], 2.) +
-               pow(midpoint[2] - ctx->center[2], 2.);
+    l = pow(midpoint[0] - ctx->center[0], 2.) +
+        pow(midpoint[1] - ctx->center[1], 2.) +
+        pow(midpoint[2] - ctx->center[2], 2.);
 
     if (l < ctx->width &&
         h > pow(ctx->width, 2.))
@@ -136,8 +123,40 @@ volume_iter(p8est_iter_volume_info_t *info, void *user_data)
     p8est_quadrant_t    *q = info->quad;
     data_t              *data = (data_t *) q->p.user_data;
     double              h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
+    double              midpoint[3];
+    double              sum;
+    size_t              i, n;
+    p4est_qcoord_t      a, b, c;
+    ctx_t *ctx = (ctx_t *) info->p4est->user_pointer;
 
-    data->v = h * h * h;
+    sum = 0;
+    n = 15;
+
+    get_midpoint(info->p4est, info->treeid, q, midpoint);
+
+    double l = pow(midpoint[0] - ctx->center[0], 2.) +
+               pow(midpoint[1] - ctx->center[1], 2.) +
+               pow(midpoint[2] - ctx->center[2], 2.);
+
+    if (l > ctx->width)
+        n = 0;
+
+    for (i = 0; i < n; ++i)
+    {
+        a = q->x * rand() / RAND_MAX;
+        b = q->y * rand() / RAND_MAX;
+        c = q->z * rand() / RAND_MAX;
+
+        if (abs(a - q->x) < h &&
+            abs(b - q->y) < h &&
+            abs(c - q->z) < h)
+        {
+            sum += pow(a, 2) + pow(b, 2) + pow(c, 2) - pow(ctx->width, 2);
+        }
+    }
+
+    data->f2 = n > 0 ? (h * h * h / n) * sum : h * h * h;
+    data->v = h;
 }
 
 /**
@@ -197,6 +216,7 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
                 }
                 uavg[i] += udata->v;
             }
+            uavg[i] /= 2;
             //uavg /= P8EST_HALF;
         }
         else {
@@ -220,7 +240,7 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
 
                 if (!side[i]->is.hanging.is_ghost[j]) {
                     udata = (data_t *) quad->p.user_data;
-                    udata->f1 += uavg[i];
+                    udata->f1 = pow(uavg[i], 3);
                 }
             }
         }
@@ -228,20 +248,24 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
             quad = side[i]->is.full.quad;
             if (!side[i]->is.full.is_ghost) {
                 udata = (data_t *) quad->p.user_data;
-                udata->f1 += uavg[i];
+                udata->f1 = pow(uavg[i], 3);
             }
         }
     }
 }
 
-/**
- * Fill user_data with scalar data
- *
- * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
- * callback function, which it executes at every local quadrant
- **/
 static void
-get_solution(p8est_iter_volume_info_t *info, void *user_data)
+calc_error_iter(p8est_iter_volume_info_t *info, void *user_data)
+{
+
+    p8est_quadrant_t    *q = info->quad;
+    data_t              *data = (data_t *) q->p.user_data;
+
+    data->e = fabs(data->f2 - data->f1);
+}
+
+static void
+get_solution(p8est_iter_volume_info_t *info, void *user_data, int f)
 {
     sc_array_t          *u_interp = (sc_array_t *) user_data;
     /* we passed the array of values to fill as the
@@ -266,36 +290,117 @@ get_solution(p8est_iter_volume_info_t *info, void *user_data)
 
     for (i = 0; i < P8EST_CHILDREN; i++) {
         this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
-        this_u_ptr[0] = data->v;
+
+        switch (f)
+        {
+            case 1:
+                this_u_ptr[0] = data->f1;
+                break;
+            case 2:
+                this_u_ptr[0] = data->f2;
+                break;
+            case 0:
+            default:
+                //SC_PRODUCTIONF("e=%lf: f2=%lf, f1=%lf\n", data->e, data->f2, data->f1);
+                this_u_ptr[0] = (data->e == data->f2) ? 0 : data->e;
+                break;
+        }
     }
 }
 
+/**
+ * Fill user_data with scalar data for function F1
+ *
+ * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
+ * callback function, which it executes at every local quadrant
+ **/
+static void
+get_solution_f1(p8est_iter_volume_info_t *info, void *user_data)
+{
+    get_solution(info, user_data, 1);
+}
+
+/**
+ * Fill user_data with scalar data for function F2
+ *
+ * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
+ * callback function, which it executes at every local quadrant
+ **/
+static void
+get_solution_f2(p8est_iter_volume_info_t *info, void *user_data)
+{
+    get_solution(info, user_data, 2);
+}
+
+/**
+ * Fill user_data with scalar data for function F2
+ *
+ * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
+ * callback function, which it executes at every local quadrant
+ **/
+static void
+get_error_estimate(p8est_iter_volume_info_t *info, void *user_data)
+{
+    get_solution(info, user_data, 0);
+}
+
+
 /* Create vtk with solution */
 static void
-write_solution(p8est_t *p8est)
+write_solution(p8est_t *p8est, int step)
 {
     char                filename[BUFSIZ] = { '\0' };
-    sc_array_t          *u_interp;
+    size_t              i;
+    sc_array_t          *f1_interp;
+    sc_array_t          *f2_interp;
+    sc_array_t          *error_estimate_interp;
+    double              *err_ptr;
+    double              error;
     p4est_locidx_t      numquads;
 
-    snprintf (filename, 9, "solution");
+    snprintf (filename, 12, "solution_%02d", step);
+    error = 0;
 
     numquads = p8est->local_num_quadrants;
 
     /* create a vector with one value for the corner of every local quadrant
      * (the number of children is always the same as the number of corners) */
-    u_interp = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    f1_interp = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    f2_interp = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    error_estimate_interp = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
 
     /* Use the iterator to visit every cell and fill in the solution values.
      * Using the iterator is not absolutely necessary in this case: we could
      * also loop over every tree (there is only one tree in this case) and loop
      * over every quadrant within every tree */
     p4est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
-                  (void *) u_interp,     /* pass in u_interp so that we can fill it */
-                  get_solution,    /* callback function that fill u_interp */
+                  (void *) f1_interp,     /* pass in u_interp so that we can fill it */
+                  get_solution_f1,    /* callback function that fill u_interp */
                   NULL,          /* there is no callback for the faces between quadrants */
                   NULL,          /* there is no callback for the edges between quadrants */
                   NULL);         /* there is no callback for the corners between quadrants */
+
+    p4est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
+                  (void *) f2_interp,     /* pass in u_interp so that we can fill it */
+                  get_solution_f2,    /* callback function that fill u_interp */
+                  NULL,          /* there is no callback for the faces between quadrants */
+                  NULL,          /* there is no callback for the edges between quadrants */
+                  NULL);         /* there is no callback for the corners between quadrants */
+
+    p4est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
+                  (void *) error_estimate_interp,     /* pass in u_interp so that we can fill it */
+                  get_error_estimate,    /* callback function that fill u_interp */
+                  NULL,          /* there is no callback for the faces between quadrants */
+                  NULL,          /* there is no callback for the edges between quadrants */
+                  NULL);         /* there is no callback for the corners between quadrants */
+
+    for (i = 0; i < error_estimate_interp->elem_count; ++i)
+    {
+        err_ptr = (double *) sc_array_index(error_estimate_interp, i);
+        error += err_ptr[0];
+    }
+
+    SC_PRODUCTIONF("Error estimate: %lf\n", error);
 
     /* create VTK output context and set its parameters */
     p4est_vtk_context_t *context = p4est_vtk_context_new (p8est, filename);
@@ -318,9 +423,13 @@ write_solution(p8est_t *p8est)
                     P4EST_STRING "_vtk: Error writing cell data");
 
     /* write one scalar field: the solution value */
-    context = p8est_vtk_write_point_dataf(context, 1, 0, /* write no vector fields */
-                                          "solution",
-                                          u_interp,
+    context = p8est_vtk_write_point_dataf(context, 3, 0, /* write no vector fields */
+                                          "solution_f1",
+                                          f1_interp,
+                                          "solution_f2",
+                                          f2_interp,
+                                          "error_estimate",
+                                          error_estimate_interp,
                                           context);        /* mark the end of the variable cell data. */
     SC_CHECK_ABORT (context != NULL,
                     P4EST_STRING "_vtk: Error writing cell data");
@@ -328,11 +437,13 @@ write_solution(p8est_t *p8est)
     const int retval = p4est_vtk_write_footer(context);
     SC_CHECK_ABORT (!retval, P4EST_STRING "_vtk: Error writing footer");
 
-    sc_array_destroy (u_interp);
+    sc_array_destroy (f1_interp);
+    sc_array_destroy (f2_interp);
+    sc_array_destroy (error_estimate_interp);
 }
 
 static void
-solve(p8est_t *p8est)
+solve(p8est_t *p8est, int step)
 {
     data_t              *ghost_data;
     ctx_t               *ctx = (ctx_t *) p8est->user_pointer;
@@ -352,12 +463,14 @@ solve(p8est_t *p8est)
                   NULL
     );
 
-    /*p8est_iterate(p8est, ghost, (void *) ghost_data,
-                  volume_iter,
-                  face_iter_f2,
+    p8est_ghost_exchange_data (p8est, ghost, ghost_data);
+
+    p8est_iterate(p8est, ghost, (void *) ghost_data,
+                  calc_error_iter,
+                  NULL,
                   NULL,
                   NULL
-    );*/
+    );
 
     /* Test face neighbor iterator
     for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid) {
@@ -381,7 +494,7 @@ solve(p8est_t *p8est)
         }
     }*/
 
-    write_solution(p8est);
+    write_solution(p8est, step);
 
     /* clear */
     P4EST_FREE (ghost_data);
@@ -435,11 +548,30 @@ main (int argc, char **argv)
     p8est_balance(p8est, P4EST_CONNECT_FACE, init);
     p8est_partition (p8est, 1, NULL);
 
-    p8est_vtk_write_file (p8est, NULL, "amr_test_vtk");
+    SC_PRODUCTIONF("Start solve 0\n", NULL);
+    solve(p8est, 0);
+    SC_PRODUCTIONF("End solve 0\n", NULL);
 
-    SC_PRODUCTIONF("Start solve\n", NULL);
-    solve(p8est);
-    SC_PRODUCTIONF("End solve\n", NULL);
+    p8est_refine(p8est, 0, refine_always, init);
+    p8est_partition (p8est, 0, NULL);
+
+    SC_PRODUCTIONF("Start solve 1\n", NULL);
+    solve(p8est, 1);
+    SC_PRODUCTIONF("End solve 1\n", NULL);
+
+    p8est_refine(p8est, 0, refine_always, init);
+    p8est_partition (p8est, 0, NULL);
+
+    SC_PRODUCTIONF("Start solve 2\n", NULL);
+    solve(p8est, 2);
+    SC_PRODUCTIONF("End solve 2\n", NULL);
+
+    p8est_refine(p8est, 0, refine_always, init);
+    p8est_partition (p8est, 0, NULL);
+
+    SC_PRODUCTIONF("Start solve 3\n", NULL);
+    solve(p8est, 3);
+    SC_PRODUCTIONF("End solve 3\n", NULL);
 
     // clear
     p8est_destroy(p8est);
