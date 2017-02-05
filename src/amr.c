@@ -26,6 +26,11 @@ typedef struct ctx
     double              count;
 } ctx_t;
 
+/**
+ * Debug print quadrant
+ * @param q
+ * @param rank
+ */
 static void
 quadrant_print(p8est_quadrant_t *q, int rank)
 {
@@ -33,6 +38,28 @@ quadrant_print(p8est_quadrant_t *q, int rank)
     p4est_qcoord_t y = (q->y) >> (P4EST_MAXLEVEL - q->level);
     p4est_qcoord_t z = (q->z) >> (P4EST_MAXLEVEL - q->level);
     printf("[p4est %d] x=%d y=%d z=%d level=%d\n", rank, x, y, z, q->level);
+}
+
+/**
+ * Calculate laplacian for input function f
+ * http://mathworld.wolfram.com/Laplacian.html
+ *
+ * @param f
+ * @param x
+ * @param y
+ * @param z
+ * @param dt
+ * @return
+ */
+static double
+laplacian(double (*f)(double, double, double),
+          double x, double y, double z,
+          double dt)
+{
+    return 1/pow(dt,2.) * (f(x + dt, y, z) + f(x - dt, y, z) +
+                           f(x, y + dt, z) + f(x, y - dt, z) +
+                           f(x, y, z + dt) + f(x, y, z - dt) -
+                           6*f(x, y, z));
 }
 
 /**
@@ -53,6 +80,7 @@ get_midpoint(p8est_t *p8est, p4est_topidx_t tree, p8est_quadrant_t *q, double xy
 
 /**
  * Initialize each cell
+ *
  * @param p4est
  * @param which_tree
  * @param q
@@ -72,6 +100,14 @@ init(p8est_t *p4est, p4est_topidx_t which_tree, p8est_quadrant_t *q)
     data->e  = 0;
 }
 
+/**
+ * Refine every step (non-recursive)
+ *
+ * @param p8est
+ * @param which_tree
+ * @param q
+ * @return
+ */
 static int
 refine_always (p8est_t *p8est,
                p4est_topidx_t which_tree,
@@ -111,6 +147,20 @@ coarsen_fn (p8est_t *p8est,
     return 0;
 }
 
+
+/**
+ * Solver function
+ * @param x
+ * @param y
+ * @param z
+ * @return
+ */
+static double
+f(double x, double y, double z)
+{
+    return pow(x, 2.) + pow(y, 2.) + pow(z, 2.);
+}
+
 /**
  * Calculate F1
  *
@@ -123,40 +173,13 @@ volume_iter(p8est_iter_volume_info_t *info, void *user_data)
     p8est_quadrant_t    *q = info->quad;
     data_t              *data = (data_t *) q->p.user_data;
     double              h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
-    double              midpoint[3];
-    double              sum;
-    size_t              i, n;
-    p4est_qcoord_t      a, b, c;
+    double              mp[3];
     ctx_t *ctx = (ctx_t *) info->p4est->user_pointer;
 
-    sum = 0;
-    n = 15;
+    get_midpoint(info->p4est, info->treeid, q, mp);
 
-    get_midpoint(info->p4est, info->treeid, q, midpoint);
-
-    double l = pow(midpoint[0] - ctx->center[0], 2.) +
-               pow(midpoint[1] - ctx->center[1], 2.) +
-               pow(midpoint[2] - ctx->center[2], 2.);
-
-    if (l > ctx->width)
-        n = 0;
-
-    for (i = 0; i < n; ++i)
-    {
-        a = q->x * rand() / RAND_MAX;
-        b = q->y * rand() / RAND_MAX;
-        c = q->z * rand() / RAND_MAX;
-
-        if (abs(a - q->x) < h &&
-            abs(b - q->y) < h &&
-            abs(c - q->z) < h)
-        {
-            sum += pow(a, 2) + pow(b, 2) + pow(c, 2) - pow(ctx->width, 2);
-        }
-    }
-
-    data->f2 = n > 0 ? (h * h * h / n) * sum : h * h * h;
-    data->v = h;
+    // Laplasian * V
+    data->f2 = laplacian(f, mp[0], mp[1], mp[2], 0.01) * h * h * h;
 }
 
 /**
@@ -333,7 +356,7 @@ get_solution_f2(p8est_iter_volume_info_t *info, void *user_data)
 }
 
 /**
- * Fill user_data with scalar data for function F2
+ * Fill user_data with scalar data for error
  *
  * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
  * callback function, which it executes at every local quadrant
@@ -400,7 +423,7 @@ write_solution(p8est_t *p8est, int step)
         error += err_ptr[0];
     }
 
-    SC_PRODUCTIONF("Error estimate: %lf\n", error);
+    printf("Error estimate: %lf\n", error);
 
     /* create VTK output context and set its parameters */
     p4est_vtk_context_t *context = p4est_vtk_context_new (p8est, filename);
@@ -423,16 +446,16 @@ write_solution(p8est_t *p8est, int step)
                     P4EST_STRING "_vtk: Error writing cell data");
 
     /* write one scalar field: the solution value */
-    context = p8est_vtk_write_point_dataf(context, 3, 0, /* write no vector fields */
+    /*context = p8est_vtk_write_point_dataf(context, 3, 0,
                                           "solution_f1",
                                           f1_interp,
                                           "solution_f2",
                                           f2_interp,
                                           "error_estimate",
                                           error_estimate_interp,
-                                          context);        /* mark the end of the variable cell data. */
+                                          context);
     SC_CHECK_ABORT (context != NULL,
-                    P4EST_STRING "_vtk: Error writing cell data");
+                    P4EST_STRING "_vtk: Error writing cell data");*/
 
     const int retval = p4est_vtk_write_footer(context);
     SC_CHECK_ABORT (!retval, P4EST_STRING "_vtk: Error writing footer");
@@ -559,7 +582,7 @@ main (int argc, char **argv)
     solve(p8est, 1);
     SC_PRODUCTIONF("End solve 1\n", NULL);
 
-    p8est_refine(p8est, 0, refine_always, init);
+    /*p8est_refine(p8est, 0, refine_always, init);
     p8est_partition (p8est, 0, NULL);
 
     SC_PRODUCTIONF("Start solve 2\n", NULL);
@@ -571,7 +594,7 @@ main (int argc, char **argv)
 
     SC_PRODUCTIONF("Start solve 3\n", NULL);
     solve(p8est, 3);
-    SC_PRODUCTIONF("End solve 3\n", NULL);
+    SC_PRODUCTIONF("End solve 3\n", NULL);*/
 
     // clear
     p8est_destroy(p8est);
