@@ -1,37 +1,12 @@
-#include <p4est_to_p8est.h>
-#include <p8est_connectivity.h>
-#include <p8est.h>
-#include <p8est_extended.h>
-#include <p8est_vtk.h>
 #include <p8est_iterate.h>
-
-/**
- * Data set for each cell
- */
-typedef struct data
-{
-    double              f1;
-    double              f2;
-    double              v;
-    double              e;
-} data_t;
-
-/**
- * Describes current problem
- */
-typedef struct ctx
-{
-    double              center[P4EST_DIM];  // coordinates of the center
-    double              width;
-    double              count;
-} ctx_t;
+#include "amr.h"
 
 /**
  * Debug print quadrant
  * @param q
  * @param rank
  */
-static void
+void
 quadrant_print(p8est_quadrant_t *q, int rank)
 {
     p4est_qcoord_t x = (q->x) >> (P4EST_MAXLEVEL - q->level);
@@ -51,21 +26,60 @@ quadrant_print(p8est_quadrant_t *q, int rank)
  * @param dt
  * @return
  */
-static double
-laplacian(double (*f)(double, double, double),
-          double x, double y, double z,
-          double dt)
+double
+laplacian(t_func_3 f,
+          double x, double y, double z)
 {
-    return 1/pow(dt,2.) * (f(x + dt, y, z) + f(x - dt, y, z) +
-                           f(x, y + dt, z) + f(x, y - dt, z) +
-                           f(x, y, z + dt) + f(x, y, z - dt) -
-                           6*f(x, y, z));
+    const int       n = 10;
+    const double    dt = 0.01;
+    double          sum = 0;
+    int             i;
+
+    for (i = 0; i < n; ++i)
+    {
+        sum += 1/pow(dt,2.) * (f(x + dt, y, z) + f(x - dt, y, z) +
+                               f(x, y + dt, z) + f(x, y - dt, z) +
+                               f(x, y, z + dt) + f(x, y, z - dt) -
+                               6 * f(x, y, z));
+    }
+
+    sum /= n;
+
+    return sum;
+}
+
+/**
+ * Calculate gradient
+ * http://mathworld.wolfram.com/Gradient.html
+ *
+ * @return
+ */
+double
+grad(t_func_3 f,
+     double x, double y, double z,
+     double nx, double ny, double nz)
+{
+    const int       n = 10;
+    const double    dt = 0.01;
+    double          sum = 0;
+    int             i;
+
+    for (i = 0; i < n; ++i)
+    {
+        sum +=  (nx * (f(x+dt, y, z) - f(x,y,z)) / dt / 2 +
+                 ny * (f(x, y+dt, z) - f(x,y,z)) / dt / 2 +
+                 nz * (f(x, y, z+dt) - f(x,y,z)) / dt / 2);
+    }
+
+    sum /= n;
+
+    return sum;
 }
 
 /**
  * Get the coordinates of the midpoint of a quadrant.
  */
-static void
+void
 get_midpoint(p8est_t *p8est, p4est_topidx_t tree, p8est_quadrant_t *q, double xyz[3])
 {
     p4est_qcoord_t half_length = P8EST_QUADRANT_LEN(q->level) / 2;
@@ -85,7 +99,7 @@ get_midpoint(p8est_t *p8est, p4est_topidx_t tree, p8est_quadrant_t *q, double xy
  * @param which_tree
  * @param q
  */
-static void
+void
 init(p8est_t *p4est, p4est_topidx_t which_tree, p8est_quadrant_t *q)
 {
     /* the data associated with a forest is accessible by user_pointer */
@@ -108,7 +122,7 @@ init(p8est_t *p4est, p4est_topidx_t which_tree, p8est_quadrant_t *q)
  * @param q
  * @return
  */
-static int
+int
 refine_always (p8est_t *p8est,
                p4est_topidx_t which_tree,
                p8est_quadrant_t *q)
@@ -116,7 +130,15 @@ refine_always (p8est_t *p8est,
     return 1;
 }
 
-static int
+/**
+ * Refine rule
+ *
+ * @param p8est
+ * @param which_tree
+ * @param q
+ * @return
+ */
+int
 refine_fn (p8est_t *p8est,
            p4est_topidx_t which_tree,
            p8est_quadrant_t *q)
@@ -139,26 +161,12 @@ refine_fn (p8est_t *p8est,
     return 0;
 }
 
-static int
+int
 coarsen_fn (p8est_t *p8est,
             p4est_topidx_t which_tree,
             p8est_quadrant_t **children)
 {
     return 0;
-}
-
-
-/**
- * Solver function
- * @param x
- * @param y
- * @param z
- * @return
- */
-static double
-f(double x, double y, double z)
-{
-    return pow(x, 2.) + pow(y, 2.) + pow(z, 2.);
 }
 
 /**
@@ -167,19 +175,19 @@ f(double x, double y, double z)
  * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
  * callback function, which it executes at every local quadrant
  **/
-static void
+void
 volume_iter(p8est_iter_volume_info_t *info, void *user_data)
 {
     p8est_quadrant_t    *q = info->quad;
     data_t              *data = (data_t *) q->p.user_data;
     double              h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
     double              mp[3];
-    ctx_t *ctx = (ctx_t *) info->p4est->user_pointer;
+    ctx_t               *ctx = (ctx_t *) info->p4est->user_pointer;
 
     get_midpoint(info->p4est, info->treeid, q, mp);
 
     // Laplasian * V
-    data->f2 = laplacian(f, mp[0], mp[1], mp[2], 0.01) * h * h * h;
+    data->f2 = ctx->f(mp[0], mp[1], mp[2]) * h * h * h;
 }
 
 /**
@@ -193,7 +201,7 @@ volume_iter(p8est_iter_volume_info_t *info, void *user_data)
  *                       step3_data_t data for all of the ghost cells, which
  *                       was populated by p4est_ghost_exchange_data()
  */
-static void
+void
 face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
 {
     int                 i, j;
@@ -205,10 +213,11 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
     double              vdotn = 0.;
     double              uavg[2];
     double              q;
-    double              h, facearea;
+    double              facearea;
+    p4est_qcoord_t      h;
     int                 which_side;
     int                 which_dir;
-    double              midpoint[3];
+    double              x, y, z, midpoint[3];
     p8est_iter_face_side_t *side[2];
     sc_array_t          *sides = &(info->sides);
 
@@ -218,7 +227,7 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
     side[0] = p8est_iter_fside_array_index_int(sides, 0);
     side[1] = p8est_iter_fside_array_index_int(sides, 1);
 
-    which_dir = side[0]->face / 2;        /* 0 == x, 1 == y, 2 == z */
+    which_dir = side[0]->face;
 
     /* Because we have non-conforming boundaries, one side of an interface can
      * either have one large ("full") quadrant or 2^(d-1) small ("hanging")
@@ -231,18 +240,62 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
         if (side[i]->is_hanging) {
             /* there are 2^(d-1) (P4EST_HALF) subfaces */
             for (j = 0; j < P8EST_HALF; j++) {
+                quad = side[i]->is.hanging.quad[j];
                 if (side[i]->is.hanging.is_ghost[j]) {
                     udata = (data_t *) &ghost_data[side[i]->is.hanging.quadid[j]];
                 }
                 else {
                     udata = (data_t *) side[i]->is.hanging.quad[j]->p.user_data;
                 }
-                uavg[i] += udata->v;
+
+                /* mid point from neighbor cell */
+                get_midpoint(p4est,
+                             quad->p.which_tree,
+                             quad,
+                             midpoint);
+                h = P8EST_QUADRANT_LEN(side[i]->is.hanging.quad[j]->level) / 2;
+
+                switch (which_dir) {
+                    case 0:                      /* -x side */
+                        x = midpoint[0] + h / 2;
+                        y = midpoint[1];
+                        z = midpoint[2];
+                        break;
+                    case 1:                      /* +x side */
+                        x = midpoint[0] - h / 2;
+                        y = midpoint[1];
+                        z = midpoint[2];
+                        break;
+                    case 2:                      /* -y side */
+                        x = midpoint[0];
+                        y = midpoint[1] + h / 2;
+                        z = midpoint[2];
+                        break;
+                    case 3:                      /* +y side */
+                        x = midpoint[0];
+                        y = midpoint[1] - h / 2;
+                        z = midpoint[2];
+                        break;
+                    case 4:                      /* -z side */
+                        x = midpoint[0];
+                        y = midpoint[1];
+                        z = midpoint[2] + h / 2;
+                        break;
+                    case 5:                      /* +z side */
+
+                        x = midpoint[0];
+                        y = midpoint[1];
+                        z = midpoint[2] - h / 2;
+                        break;
+                }
+
+                uavg[i] += grad(ctx->f,
+                                midpoint[0], midpoint[1], midpoint[2],
+                                x, y, z) * 4 * h * h; // s
             }
-            uavg[i] /= 2;
-            //uavg /= P8EST_HALF;
         }
         else {
+            quad = side[i]->is.full.quad;
             if (side[i]->is.full.is_ghost) {
                 udata = (data_t *) &ghost_data[side[i]->is.full.quadid];
             }
@@ -250,7 +303,13 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
                 udata = (data_t *) side[i]->is.full.quad->p.user_data;
                 //quadrant_print(side[which_side]->is.full.quad, 0);
             }
-            uavg[i] = udata->v;
+            get_midpoint(p4est,
+                         quad->p.which_tree,
+                         side[i]->is.full.quad,
+                         midpoint);
+            uavg[i] = grad(ctx->f,
+                           midpoint[0], midpoint[1], midpoint[2],
+                           midpoint[0], midpoint[1], midpoint[2]);
         }
     }
 
@@ -259,11 +318,10 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
             /* there are 2^(d-1) (P4EST_HALF) subfaces */
             for (j = 0; j < P8EST_HALF; j++) {
                 quad = side[i]->is.hanging.quad[j];
-                //get_midpoint(p4est, quad->p.which_tree, quad, midpoint);
 
                 if (!side[i]->is.hanging.is_ghost[j]) {
                     udata = (data_t *) quad->p.user_data;
-                    udata->f1 = pow(uavg[i], 3);
+                    udata->f1 = uavg[i];
                 }
             }
         }
@@ -271,13 +329,13 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
             quad = side[i]->is.full.quad;
             if (!side[i]->is.full.is_ghost) {
                 udata = (data_t *) quad->p.user_data;
-                udata->f1 = pow(uavg[i], 3);
+                udata->f1 = uavg[i];
             }
         }
     }
 }
 
-static void
+void
 calc_error_iter(p8est_iter_volume_info_t *info, void *user_data)
 {
 
@@ -287,7 +345,13 @@ calc_error_iter(p8est_iter_volume_info_t *info, void *user_data)
     data->e = fabs(data->f2 - data->f1);
 }
 
-static void
+/**
+ * Make 1d-array with solution from all processors
+ * @param info
+ * @param user_data
+ * @param f
+ */
+void
 get_solution(p8est_iter_volume_info_t *info, void *user_data, int f)
 {
     sc_array_t          *u_interp = (sc_array_t *) user_data;
@@ -337,7 +401,7 @@ get_solution(p8est_iter_volume_info_t *info, void *user_data, int f)
  * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
  * callback function, which it executes at every local quadrant
  **/
-static void
+void
 get_solution_f1(p8est_iter_volume_info_t *info, void *user_data)
 {
     get_solution(info, user_data, 1);
@@ -349,7 +413,7 @@ get_solution_f1(p8est_iter_volume_info_t *info, void *user_data)
  * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
  * callback function, which it executes at every local quadrant
  **/
-static void
+void
 get_solution_f2(p8est_iter_volume_info_t *info, void *user_data)
 {
     get_solution(info, user_data, 2);
@@ -361,7 +425,7 @@ get_solution_f2(p8est_iter_volume_info_t *info, void *user_data)
  * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
  * callback function, which it executes at every local quadrant
  **/
-static void
+void
 get_error_estimate(p8est_iter_volume_info_t *info, void *user_data)
 {
     get_solution(info, user_data, 0);
@@ -369,7 +433,7 @@ get_error_estimate(p8est_iter_volume_info_t *info, void *user_data)
 
 
 /* Create vtk with solution */
-static void
+void
 write_solution(p8est_t *p8est, int step)
 {
     char                filename[BUFSIZ] = { '\0' };
@@ -465,7 +529,7 @@ write_solution(p8est_t *p8est, int step)
     sc_array_destroy (error_estimate_interp);
 }
 
-static void
+void
 solve(p8est_t *p8est, int step)
 {
     data_t              *ghost_data;
@@ -538,7 +602,7 @@ main (int argc, char **argv)
     ctx.center[2] = 0.5;
 
     ctx.width = 0.1;
-    ctx.count = 0;
+    ctx.f = &s_func;
 
     /* Initialize MPI; see sc_mpi.h.
      * If configure --enable-mpi is given these are true MPI calls.

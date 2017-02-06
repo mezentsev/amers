@@ -1,5 +1,5 @@
 set(ADVACTION_SOURCE advaction.c)
-set(AMR_SOURCE amr.c)
+set(AMR_SOURCE amr.c amr.h)
 
 include_directories(${P4EST_INCLUDE_DIR} ${P4EST_LIBRARY})
 link_directories(${P4EST_LIBRARY})
