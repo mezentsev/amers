@@ -1,4 +1,7 @@
 #include <p8est_iterate.h>
+#include <p8est.h>
+#include <p8est_bits.h>
+#include <p8est_mesh.h>
 #include "amr.h"
 
 /**
@@ -33,7 +36,7 @@ laplacian(t_func_3 f,
     const int       n = 10;
     const double    dt = 0.01;
     double          sum = 0;
-    int             i;
+    double             i;
 
     for (i = 0; i < n; ++i)
     {
@@ -170,7 +173,60 @@ coarsen_fn (p8est_t *p8est,
 }
 
 /**
- * Calculate F1
+ * Iterate throw volumes and faces
+ *
+ * @param p8est
+ * @param ghost
+ * @param mesh
+ * @param ghost_data
+ */
+void
+mesh_iter(p8est_t *p8est, p8est_ghost_t *ghost, p8est_mesh_t *mesh, void *ghost_data)
+{
+    p8est_quadrant_t    *neighbor   = NULL;
+    p8est_mesh_face_neighbor_t mfn;
+    p4est_topidx_t      which_tree = -1;
+    p4est_locidx_t      qlid, qumid, quadrant_id, which_quad;
+    p8est_quadrant_t    *q;
+    data_t              *g_data;
+    data_t              *data;
+    int                 nface;
+    int                 nrank;
+    int                 mpiret;
+    double              i = 0;
+    ctx_t               *ctx        = (ctx_t *) p8est->user_pointer;
+
+    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid)
+    {
+        q = p8est_mesh_quadrant_cumulative (p8est, qumid,
+                                            &which_tree, &quadrant_id);
+        p8est_mesh_face_neighbor_init2 (&mfn,
+                                        p8est,
+                                        ghost,
+                                        mesh,
+                                        which_tree,
+                                        quadrant_id);
+
+        while((neighbor = p8est_mesh_face_neighbor_next (&mfn, &which_tree,
+                                                         &which_quad, &nface, &nrank)) != NULL)
+        {
+            g_data = (data_t *) p8est_mesh_face_neighbor_data (&mfn, ghost_data);
+            //SC_PRODUCTIONF("Neighbor count: %d\n", mfn.face);
+            data = (data_t *) q->p.user_data;
+
+            data->f1 = 100;
+
+            //P4EST_ASSERT (neighbor->p.which_tree == which_tree);
+        }
+
+        i += 1;
+        mpiret = MPI_Allreduce(&i, &ctx->count, 1, MPI_DOUBLE, MPI_SUM, p8est->mpicomm);
+        SC_PRODUCTIONF("Ctx count: %lf\n", ctx->count);
+    }
+}
+
+/**
+ * Calculate
  *
  * The function p4est_iterate() takes as an argument a p4est_iter_volume_t
  * callback function, which it executes at every local quadrant
@@ -178,16 +234,50 @@ coarsen_fn (p8est_t *p8est,
 void
 volume_iter(p8est_iter_volume_info_t *info, void *user_data)
 {
-    p8est_quadrant_t    *q = info->quad;
-    data_t              *data = (data_t *) q->p.user_data;
-    double              h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
+    p8est_quadrant_t    *q          = info->quad;
+    data_t              *data       = (data_t *) q->p.user_data;
+    data_t              *ghost_data = (data_t *) user_data;
+    data_t              *g_data     = NULL;
+    ctx_t               *ctx        = (ctx_t *) info->p4est->user_pointer;
+    p8est_mesh_t        *mesh       = NULL;
+    p8est_quadrant_t    *neighbor   = NULL;
+    p8est_mesh_face_neighbor_t mfn;
+    p4est_topidx_t      which_tree;
+    p4est_locidx_t      which_quad;
+    int                 nface;
+    int                 nrank;
+
+    double              h           = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
     double              mp[3];
-    ctx_t               *ctx = (ctx_t *) info->p4est->user_pointer;
 
     get_midpoint(info->p4est, info->treeid, q, mp);
-
     // Laplasian * V
     data->f2 = ctx->f(mp[0], mp[1], mp[2]) * h * h * h;
+
+    // iterate throw neighbors
+    mesh = p8est_mesh_new(info->p4est, info->ghost_layer, P8EST_CONNECT_FACE);
+    p8est_mesh_face_neighbor_init2 (&mfn,
+                                    info->p4est,
+                                    info->ghost_layer,
+                                    mesh,
+                                    info->treeid,
+                                    info->quadid);
+
+    while((neighbor = p8est_mesh_face_neighbor_next (&mfn, &which_tree,
+                                                     &which_quad, &nface, &nrank)) != NULL)
+    {
+        SC_PRODUCTIONF("Neighbor count: %d\n", mfn.face);
+        SC_PRODUCTIONF("Ctx count: %lf\n", ctx->count);
+
+        g_data = (data_t *) p8est_mesh_face_neighbor_data (&mfn, ghost_data);
+        ctx->count++;
+        data->f1 = 100;
+        //g_data->f1 = 100;
+
+        //P4EST_ASSERT (neighbor->p.which_tree == which_tree);
+    }
+
+    p8est_mesh_destroy(mesh);
 }
 
 /**
@@ -302,11 +392,13 @@ face_iter_f1(p8est_iter_face_info_t *info, void *user_data)
             else {
                 udata = (data_t *) side[i]->is.full.quad->p.user_data;
                 //quadrant_print(side[which_side]->is.full.quad, 0);
+
             }
             get_midpoint(p4est,
-                         quad->p.which_tree,
+                         side[i]->treeid,
                          side[i]->is.full.quad,
                          midpoint);
+            //quadrant_print(quad, p4est->mpirank);
             uavg[i] = grad(ctx->f,
                            midpoint[0], midpoint[1], midpoint[2],
                            midpoint[0], midpoint[1], midpoint[2]);
@@ -467,19 +559,19 @@ write_solution(p8est_t *p8est, int step)
                   NULL,          /* there is no callback for the edges between quadrants */
                   NULL);         /* there is no callback for the corners between quadrants */
 
-    p4est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
-                  (void *) f2_interp,     /* pass in u_interp so that we can fill it */
-                  get_solution_f2,    /* callback function that fill u_interp */
-                  NULL,          /* there is no callback for the faces between quadrants */
-                  NULL,          /* there is no callback for the edges between quadrants */
-                  NULL);         /* there is no callback for the corners between quadrants */
+    //p4est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
+    //              (void *) f2_interp,     /* pass in u_interp so that we can fill it */
+    //              get_solution_f2,    /* callback function that fill u_interp */
+    //              NULL,          /* there is no callback for the faces between quadrants */
+    //              NULL,          /* there is no callback for the edges between quadrants */
+    //              NULL);         /* there is no callback for the corners between quadrants */
 
-    p4est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
-                  (void *) error_estimate_interp,     /* pass in u_interp so that we can fill it */
-                  get_error_estimate,    /* callback function that fill u_interp */
-                  NULL,          /* there is no callback for the faces between quadrants */
-                  NULL,          /* there is no callback for the edges between quadrants */
-                  NULL);         /* there is no callback for the corners between quadrants */
+    //p4est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
+    //              (void *) error_estimate_interp,     /* pass in u_interp so that we can fill it */
+    //              get_error_estimate,    /* callback function that fill u_interp */
+    //              NULL,          /* there is no callback for the faces between quadrants */
+    //              NULL,          /* there is no callback for the edges between quadrants */
+    //              NULL);         /* there is no callback for the corners between quadrants */
 
     for (i = 0; i < error_estimate_interp->elem_count; ++i)
     {
@@ -510,16 +602,16 @@ write_solution(p8est_t *p8est, int step)
                     P4EST_STRING "_vtk: Error writing cell data");
 
     /* write one scalar field: the solution value */
-    /*context = p8est_vtk_write_point_dataf(context, 3, 0,
+    context = p8est_vtk_write_point_dataf(context, 1, 0,
                                           "solution_f1",
                                           f1_interp,
-                                          "solution_f2",
-                                          f2_interp,
-                                          "error_estimate",
-                                          error_estimate_interp,
+                                          //"solution_f2",
+                                          //f2_interp,
+                                          //"error_estimate",
+                                          //error_estimate_interp,
                                           context);
     SC_CHECK_ABORT (context != NULL,
-                    P4EST_STRING "_vtk: Error writing cell data");*/
+                    P4EST_STRING "_vtk: Error writing cell data");
 
     const int retval = p4est_vtk_write_footer(context);
     SC_CHECK_ABORT (!retval, P4EST_STRING "_vtk: Error writing footer");
@@ -535,55 +627,37 @@ solve(p8est_t *p8est, int step)
     data_t              *ghost_data;
     ctx_t               *ctx = (ctx_t *) p8est->user_pointer;
     p8est_ghost_t       *ghost;
+    p8est_mesh_t        *mesh;
 
     /* create the ghost quadrants */
-    ghost = p8est_ghost_new (p8est, P8EST_CONNECT_FULL);
-    /* create space for storing the ghost data */
+    ghost = p8est_ghost_new (p8est, P8EST_CONNECT_FACE);
     ghost_data = P4EST_ALLOC (data_t, ghost->ghosts.elem_count);
-    /* synchronize the ghost data */
     p8est_ghost_exchange_data (p8est, ghost, ghost_data);
 
-    p8est_iterate(p8est, ghost, (void *) ghost_data,
+    mesh = p8est_mesh_new(p8est, ghost, P8EST_CONNECT_FACE);
+
+    mesh_iter(p8est, ghost, mesh, ghost_data);
+
+    /*p8est_iterate(p8est, ghost, (void *) ghost_data,
                   volume_iter,
-                  face_iter_f1,
+                  NULL, //face_iter_f1,
                   NULL,
                   NULL
-    );
+    );*/
 
-    p8est_ghost_exchange_data (p8est, ghost, ghost_data);
+    /*p8est_ghost_exchange_data (p8est, ghost, ghost_data);
 
     p8est_iterate(p8est, ghost, (void *) ghost_data,
                   calc_error_iter,
                   NULL,
                   NULL,
                   NULL
-    );
-
-    /* Test face neighbor iterator
-    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid) {
-        which_tree = -1;
-        q = p4est_mesh_quadrant_cumulative (p4est, qumid,
-                                            &which_tree, &quadrant_id);
-        p4est_mesh_face_neighbor_init2 (&mfn, p4est, ghost, mesh,
-                                        which_tree, quadrant_id);
-        p4est_mesh_face_neighbor_init (&mfn2, p4est, ghost, mesh, which_tree, q);
-        P4EST_ASSERT (mfn2.quadrant_id == quadrant_id);
-        while ((q = p4est_mesh_face_neighbor_next (&mfn, &which_tree, &which_quad,
-                                                   &nface, &nrank)) != NULL) {
-
-            data_t *data;
-
-            data = (data_t *) p4est_mesh_face_neighbor_data (&mfn, ghost_data);
-
-            P4EST_ASSERT (p4est_quadrant_is_equal (q, &(data->quad)));
-            P4EST_ASSERT (data->quad.p.which_tree == which_tree);
-
-        }
-    }*/
+    );*/
 
     write_solution(p8est, step);
 
     /* clear */
+    p8est_mesh_destroy(mesh);
     P4EST_FREE (ghost_data);
     p4est_ghost_destroy (ghost);
 }
@@ -602,6 +676,7 @@ main (int argc, char **argv)
     ctx.center[2] = 0.5;
 
     ctx.width = 0.1;
+    ctx.count = 0;
     ctx.f = &s_func;
 
     /* Initialize MPI; see sc_mpi.h.
@@ -632,21 +707,21 @@ main (int argc, char **argv)
     p8est_refine(p8est, 1, refine_fn, init);
     p8est_coarsen(p8est, 1, coarsen_fn, init);
 
-    p8est_balance(p8est, P4EST_CONNECT_FACE, init);
+    p8est_balance(p8est, P4EST_CONNECT_FULL, init);
     p8est_partition (p8est, 1, NULL);
 
     SC_PRODUCTIONF("Start solve 0\n", NULL);
     solve(p8est, 0);
     SC_PRODUCTIONF("End solve 0\n", NULL);
 
-    p8est_refine(p8est, 0, refine_always, init);
+    /*p8est_refine(p8est, 0, refine_always, init);
     p8est_partition (p8est, 0, NULL);
 
     SC_PRODUCTIONF("Start solve 1\n", NULL);
     solve(p8est, 1);
     SC_PRODUCTIONF("End solve 1\n", NULL);
 
-    /*p8est_refine(p8est, 0, refine_always, init);
+    p8est_refine(p8est, 0, refine_always, init);
     p8est_partition (p8est, 0, NULL);
 
     SC_PRODUCTIONF("Start solve 2\n", NULL);

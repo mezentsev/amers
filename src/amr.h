@@ -41,6 +41,7 @@ typedef struct ctx
 {
     double center[P4EST_DIM];  // coordinates of the center
     double width;
+    double count;
 
     t_func_3 f;
 } ctx_t;
@@ -68,6 +69,8 @@ int coarsen_fn (p8est_t *p8est, p4est_topidx_t which_tree, p8est_quadrant_t **ch
 void volume_iter(p8est_iter_volume_info_t *info, void *user_data);
 void face_iter_f1(p8est_iter_face_info_t *info, void *user_data);
 void calc_error_iter(p8est_iter_volume_info_t *info, void *user_data);
+
+void mesh_iter(p8est_t *p8est, p8est_ghost_t *ghost, p8est_mesh_t *mesh, void *ghost_data);
 
 void get_solution(p8est_iter_volume_info_t *info, void *user_data, int f);
 void get_solution_f1(p8est_iter_volume_info_t *info, void *user_data);
