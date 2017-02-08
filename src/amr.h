@@ -20,7 +20,6 @@ typedef struct data
 {
     double              f1; /* first function value */
     double              f2; /* second function value */
-    double              v;
     double              e;  /* error estinate - fabs(f1-f2) */
 } data_t;
 
@@ -42,6 +41,8 @@ typedef struct ctx
     double center[P4EST_DIM];  // coordinates of the center
     double width;
     double count;
+    double level;
+    double err;
 
     t_func_3 f;
 } ctx_t;
