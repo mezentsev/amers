@@ -18,10 +18,22 @@
  */
 typedef struct data
 {
+    double              f0; /* init function value */
+    double              dfdx, dfdy, dfdz;
+    double              V;
+
     double              f1; /* first function value */
     double              f2; /* second function value */
-    double              e;  /* error estinate - fabs(f1-f2) */
+
+    double              e;  /* error estimate - fabs(f1-f2) */
 } data_t;
+
+typedef struct point
+{
+    double              x;
+    double              y;
+    double              z;
+} point_t;
 
 /**
  * Solver function for 3 params
@@ -59,8 +71,8 @@ double s_func(double x, double y, double z)
     return pow(x, 2.) + pow(y, 2.) + pow(z, 2.);
 }
 
-double grad(t_func_3, double, double, double, double, double, double);
-double laplacian(t_func_3, double, double, double);
+double grad(t_func_3, double, double, double, double, double, double, double);
+double laplacian(t_func_3, double, double, double, double);
 void get_midpoint(p8est_t *p8est, p4est_topidx_t tree, p8est_quadrant_t *q, double xyz[3]);
 
 void init(p8est_t *p4est, p4est_topidx_t which_tree, p8est_quadrant_t *q);
@@ -71,7 +83,8 @@ void volume_iter(p8est_iter_volume_info_t *info, void *user_data);
 void face_iter_f1(p8est_iter_face_info_t *info, void *user_data);
 void calc_error_iter(p8est_iter_volume_info_t *info, void *user_data);
 
-void mesh_iter(p8est_t *p8est, p8est_ghost_t *ghost, p8est_mesh_t *mesh, void *ghost_data);
+void mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh);
+void mesh_neighbors_iter(p8est_t *p8est, p8est_ghost_t *ghost, p8est_mesh_t *mesh, void *ghost_data);
 
 void get_solution(p8est_iter_volume_info_t *info, void *user_data, int f);
 void get_solution_f1(p8est_iter_volume_info_t *info, void *user_data);
