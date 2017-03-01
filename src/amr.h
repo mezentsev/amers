@@ -21,6 +21,7 @@ typedef struct data
     double              f0; /* init function value */
     double              dfdx, dfdy, dfdz;
     double              V;
+    double              S;
 
     double              f1; /* first function value */
     double              f2; /* second function value */
@@ -71,8 +72,45 @@ double s_func(double x, double y, double z)
     return pow(x, 2.) + pow(y, 2.) + pow(z, 2.);
 }
 
-double grad(t_func_3, double, double, double, double, double, double, double);
-double laplacian(t_func_3, double, double, double, double);
+/**
+ * Calculate gradient
+ * http://mathworld.wolfram.com/Gradient.html
+ *
+ * @return
+ */
+double
+grad(t_func_3 f,
+     double x, double y, double z,
+     double nx, double ny, double nz,
+     double dt)
+{
+    return (nx * (f(x+dt, y, z) - f(x+dt,y,z)) / dt / 2 +
+            ny * (f(x, y+dt, z) - f(x+dt,y,z)) / dt / 2 +
+            nz * (f(x, y, z+dt) - f(x+dt,y,z)) / dt / 2);
+}
+
+/**
+ * Calculate laplacian for input function f
+ * http://mathworld.wolfram.com/Laplacian.html
+ *
+ * @param f
+ * @param x
+ * @param y
+ * @param z
+ * @param dt
+ * @return
+ */
+double
+laplacian(t_func_3 f,
+          double x, double y, double z,
+          double dt)
+{
+    return 1/pow(dt,2.) * (f(x + dt, y, z) + f(x - dt, y, z) +
+                           f(x, y + dt, z) + f(x, y - dt, z) +
+                           f(x, y, z + dt) + f(x, y, z - dt) -
+                           6 * f(x, y, z));
+}
+
 void get_midpoint(p8est_t *p8est, p4est_topidx_t tree, p8est_quadrant_t *q, double xyz[3]);
 
 void init(p8est_t *p4est, p4est_topidx_t which_tree, p8est_quadrant_t *q);

@@ -19,45 +19,6 @@ quadrant_print(p8est_quadrant_t *q, int rank)
 }
 
 /**
- * Calculate laplacian for input function f
- * http://mathworld.wolfram.com/Laplacian.html
- *
- * @param f
- * @param x
- * @param y
- * @param z
- * @param dt
- * @return
- */
-double
-laplacian(t_func_3 f,
-          double x, double y, double z,
-          double dt)
-{
-    return 1/pow(dt,2.) * (f(x + dt, y, z) + f(x - dt, y, z) +
-                           f(x, y + dt, z) + f(x, y - dt, z) +
-                           f(x, y, z + dt) + f(x, y, z - dt) -
-                           6 * f(x, y, z));
-}
-
-/**
- * Calculate gradient
- * http://mathworld.wolfram.com/Gradient.html
- *
- * @return
- */
-double
-grad(t_func_3 f,
-     double x, double y, double z,
-     double nx, double ny, double nz,
-     double dt)
-{
-    return (nx * (f(x+dt, y, z) - f(x+dt,y,z)) / dt / 2 +
-            ny * (f(x, y+dt, z) - f(x+dt,y,z)) / dt / 2 +
-            nz * (f(x, y, z+dt) - f(x+dt,y,z)) / dt / 2);
-}
-
-/**
  * Get the coordinates of the midpoint of a quadrant.
  */
 void
@@ -169,10 +130,9 @@ mesh_neighbors_iter(p8est_t *p8est, p8est_ghost_t *ghost, p8est_mesh_t *mesh, vo
 
     int                 nface;
     int                 nrank;
-    int                 mpiret;
     double              i = 0;
     double              n_data = 0;  /* neighbors data */
-    double              h, Vi, Vn;
+    double              h, Vi;
     double              nx, ny, nz;
 
     for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid)
@@ -221,20 +181,15 @@ mesh_neighbors_iter(p8est_t *p8est, p8est_ghost_t *ghost, p8est_mesh_t *mesh, vo
             h = (double) P4EST_QUADRANT_LEN (q->level) / (double) P4EST_ROOT_LEN;
             Vi = pow(h, 3.);
 
-            n_data += nx * (Vi/(Vi+g_data->V) * g_data->dfdx + g_data->V/(Vi+g_data->V) * data->dfdx) +
-                      ny * (Vi/(Vi+g_data->V) * g_data->dfdy + g_data->V/(Vi+g_data->V) * data->dfdy) +
-                      nz * (Vi/(Vi+g_data->V) * g_data->dfdz + g_data->V/(Vi+g_data->V) * data->dfdz);
+            n_data += (nx * (Vi/(Vi+g_data->V) * g_data->dfdx + g_data->V/(Vi+g_data->V) * data->dfdx) +
+                       ny * (Vi/(Vi+g_data->V) * g_data->dfdy + g_data->V/(Vi+g_data->V) * data->dfdy) +
+                       nz * (Vi/(Vi+g_data->V) * g_data->dfdz + g_data->V/(Vi+g_data->V) * data->dfdz)) * g_data->S;
         }
 
         i += 1;
 
         data->f1 = n_data;
         n_data = 0;
-
-        //mpiret = MPI_Allreduce(&i, &ctx->count, 1, MPI_DOUBLE, MPI_SUM, p8est->mpicomm);
-
-        //SC_CHECK_ABORT (!mpiret, P8EST_STRING "_MPI: Error Allreduce");
-        //SC_PRODUCTIONF("Ctx count: %lf\n", ctx->count);
     }
 }
 
@@ -257,7 +212,7 @@ mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh)
     data_t              *g_data;                        /* ghost data */
     data_t              *data;
 
-    double              h, Vi;
+    double              h, Vi, Si;
     double              p[3];
 
     for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid)
@@ -269,11 +224,13 @@ mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh)
         /* side length */
         h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
         Vi = pow(h, 3.);
+        Si = pow(h, 2.);
         get_midpoint(p8est, which_tree, q, p);
 
         data = (data_t *) q->p.user_data;
 
         data->V     = Vi;
+        data->S     = Si;
         data->f0    = pow(p[0], 2.) + pow(p[1], 2.) + pow(p[2], 2.); /** f    = x^2+y^2+z^2          */
         data->dfdx  = 2 * p[0];                                      /** dfdx = 2x                   */
         data->dfdy  = 2 * p[1];                                      /** dfdy = 2y                   */
@@ -496,11 +453,11 @@ write_solution(p8est_t *p8est, int step)
 
     if (p8est->mpirank == 0)
     {
-        //err_out = fopen(filename, "w");
-        //SC_CHECK_ABORT(err_out, "Can't write to file");
+        err_out = fopen(filename, "w");
+        SC_CHECK_ABORT(err_out, "Can't write to file");
         printf("Error estimate: %.20lf\n", ctx->err);
-        //fprintf(err_out, "%.20lf\n", ctx->err);
-        //fclose(err_out);
+        fprintf(err_out, "G%d: cells=%lld; err=%.20lf\n", step, p8est->global_num_quadrants, ctx->err);
+        fclose(err_out);
     }
 
     /* create VTK output context and set its parameters */
