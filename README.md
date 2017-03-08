@@ -2,19 +2,37 @@
 
 
 ## Dependencies
+cmake >= 2.6
+lua
+autoconf >= 1.11
+mpich >= 1.15
 
-p4est and sc:  
+
+Need to build p4est and sc libraries and link with project.
+
+$ export DEBUG="-O0 -g -Wall -Wuninitialized"
+$ export FAST="-O2 -w"
+
 $ ./bootstrap
 
 Build debug:  
-$ ./configure CFLAGS="-O0 -g -Wall -Wuninitialized" --enable-debug --enable-mpi --enable-shared  
+$ ./configure CFLAGS=$DEBUG CC=mpicc CXX=mpicxx --enable-mpi --enable-shared --without-blas
 $ make && make install
 
 
-## Install
+## Build project
 
-First, need to build p4est and sc libraries and link with project.
+Determine p4est and sc libraries path
+
+$ export P4EST_LIBRARY=/usr/local/lib
+$ export P4EST_INCLUDE=/usr/local/include
+
+$ export SC_LIBRARY=/usr/local/lib
+$ export SC_INCLUDE=/usr/local/include
+
+
+Build target
 
 $ mkdir build && cd build  
-$ cmake .. -DP4EST_LIBRARY=PATH_TO_LIB_DIR -DP4EST_INCLUDE_DIR=PATH_TO_INCLUDE_DIR -DSC_LIBRARY=PATH_TO_LIB_DIR -DSC_INCLUDE_DIR=PATH_TO_INCLUDE_DIR  
-$ make && make install
+$ cmake .. -DP4EST_LIBRARY=$P4EST_LIBRARY -DP4EST_INCLUDE_DIR=$P4EST_INCLUDE -DSC_LIBRARY=$P4EST_LIBRARY -DSC_INCLUDE_DIR=$P4EST_INCLUDE 
+$ make amr
