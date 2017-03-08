@@ -11,6 +11,11 @@
 #include <p8est_extended.h>
 #include <p8est_vtk.h>
 #include <p8est_iterate.h>
+#include <time.h>
+#include <p8est_iterate.h>
+#include <p8est.h>
+#include <p8est_bits.h>
+#include <p8est_mesh.h>
 
 
 /**

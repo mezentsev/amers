@@ -1,7 +1,3 @@
-#include <p8est_iterate.h>
-#include <p8est.h>
-#include <p8est_bits.h>
-#include <p8est_mesh.h>
 #include "amr.h"
 
 /**
@@ -503,12 +499,17 @@ write_solution(p8est_t *p8est, int step)
 int
 main (int argc, char **argv)
 {
+    char                    filename[BUFSIZ] = { '\0' };
     int                     mpiret;
     int                     i;
     sc_MPI_Comm             mpicomm;
     ctx_t                   ctx;
     p8est_t                 *p8est;
     p8est_connectivity_t    *conn;
+    clock_t                 start;
+    FILE                    *file;
+
+    start = clock();
 
     ctx.center[0] = 0.5;
     ctx.center[1] = 0.5;
@@ -517,7 +518,7 @@ main (int argc, char **argv)
     ctx.width = 0.2;
     ctx.count = 0;
     ctx.err = 0;
-    ctx.level = 3;
+    ctx.level = 4;
     ctx.f = &s_func;
 
     /* Initialize MPI; see sc_mpi.h.
@@ -551,18 +552,55 @@ main (int argc, char **argv)
     p8est_balance(p8est, P4EST_CONNECT_FULL, init);
     p8est_partition (p8est, 1, NULL);
 
+    // init time
+    if(p8est->mpirank == 0)
+    {
+        file = fopen("init.time", "w");
+        SC_CHECK_ABORT(file, "Can't write to file");
+        fprintf(file, "Init took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
+        fclose(file);
+    }
+    //
+
     p8est_vtk_write_file (p8est, NULL, "init");
 
     for (i = 0; i < ctx.level; ++i)
     {
+        start = clock();
+
         SC_PRODUCTIONF("Start solve %d step\n", i);
         solve(p8est, i);
         SC_PRODUCTIONF("End solve %d step\n", i);
+
+        // solve time for i-step
+        if(p8est->mpirank == 0)
+        {
+            snprintf (filename, 12, "solution_%02d.time", i);
+            file = fopen(filename, "w");
+            SC_CHECK_ABORT(file, "Can't write to file");
+            fprintf(file, "Init took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
+            fclose(file);
+        }
+        //
+
         if (i == ctx.level - 1)
             break;
 
+        start = clock();
+
         p8est_refine(p8est, 0, refine_always, init);
         p8est_partition (p8est, 1, NULL);
+
+        // partition time for i-step
+        if(p8est->mpirank == 0)
+        {
+            snprintf (filename, 12, "partitio_%02d.time", i);
+            file = fopen(filename, "w");
+            SC_CHECK_ABORT(file, "Can't write to file");
+            fprintf(file, "Init took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
+            fclose(file);
+        }
+        //
     }
 
     // clear
