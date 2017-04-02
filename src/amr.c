@@ -275,11 +275,9 @@ error_iter(p8est_t *p8est, p8est_ghost_t *ghost, p8est_mesh_t *mesh, void *ghost
         Vi = pow(h, 3.);
 
         data->e = pow(fabs(data->f1 - data->f2), 2.) * Vi;
-        err += data->e;
-        mpiret = MPI_Allreduce(&err, &ctx->err, 1, MPI_DOUBLE, MPI_SUM, p8est->mpicomm);
 
-        SC_CHECK_MPI(mpiret);
-        //SC_PRODUCTIONF("Error: %.20lf\n", ctx->err);
+        err += data->e;
+        ctx->err = err;
     }
 }
 
@@ -419,6 +417,7 @@ write_solution(p8est_t *p8est, int step)
     double              error = 0;
     p4est_locidx_t      numquads;
     FILE                *err_out;
+    int                 mpiret;
 
     snprintf (filename, 12, "solution_%02d", step);
 
@@ -428,7 +427,7 @@ write_solution(p8est_t *p8est, int step)
      * (the number of children is always the same as the number of corners) */
     f1_interp = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
     //f2_interp = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
-    //error_estimate_interp = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    error_estimate_interp = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
 
     /* Use the iterator to visit every cell and fill in the solution values.
      * Using the iterator is not absolutely necessary in this case: we could
@@ -441,17 +440,17 @@ write_solution(p8est_t *p8est, int step)
                   NULL,          /* there is no callback for the edges between quadrants */
                   NULL);         /* there is no callback for the corners between quadrants */
 
-    /*for (i = 0; i < error_estimate_interp->elem_count; ++i)
-    {
-        err_ptr = (double *) sc_array_index(error_estimate_interp, i);
-        error += *err_ptr;
-    }*/
+    SC_PRODUCTIONF("Quadrants %d. Error estimate: %.20lf\n", p8est->local_num_quadrants, ctx->err);
+
+    mpiret = MPI_Allreduce(&ctx->err, &error, 1, MPI_DOUBLE, MPI_SUM, p8est->mpicomm);
+    SC_CHECK_MPI(mpiret);
+
+    SC_PRODUCTIONF("Allreduce. Quadrants %d. Error estimate: %.20lf\n", p8est->local_num_quadrants, error);
 
     if (p8est->mpirank == 0)
     {
         err_out = fopen(filename, "w");
         SC_CHECK_ABORT(err_out, "Can't write to file");
-        printf("Error estimate: %.20lf\n", ctx->err);
         fprintf(err_out, "G%d: cells=%lld; err=%.20lf\n", step, p8est->global_num_quadrants, ctx->err);
         fclose(err_out);
     }
@@ -493,7 +492,7 @@ write_solution(p8est_t *p8est, int step)
 
     sc_array_destroy (f1_interp);
     //sc_array_destroy (f2_interp);
-    //sc_array_destroy (error_estimate_interp);
+    sc_array_destroy (error_estimate_interp);
 }
 
 int
