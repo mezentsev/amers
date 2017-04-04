@@ -552,14 +552,12 @@ main (int argc, char **argv)
     p8est_partition (p8est, 1, NULL);
 
     // init time
-    if(p8est->mpirank == 0)
-    {
+    if(p8est->mpirank == 0) {
         file = fopen("init.time", "w");
         SC_CHECK_ABORT(file, "Can't write to file");
-        fprintf(file, "Init took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
+        fprintf(file, "Init took %f seconds\n", ((double) clock() - start) / CLOCKS_PER_SEC);
         fclose(file);
     }
-    //
 
     p8est_vtk_write_file (p8est, NULL, "init");
 
@@ -574,10 +572,10 @@ main (int argc, char **argv)
         // solve time for i-step
         if(p8est->mpirank == 0)
         {
-            snprintf (filename, 12, "solution_%02d.time", i);
+            snprintf (filename, 17, "solution_%02d.time", i);
             file = fopen(filename, "w");
             SC_CHECK_ABORT(file, "Can't write to file");
-            fprintf(file, "Init took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
+            fprintf(file, "Solution took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
             fclose(file);
         }
         //
@@ -593,10 +591,10 @@ main (int argc, char **argv)
         // partition time for i-step
         if(p8est->mpirank == 0)
         {
-            snprintf (filename, 12, "partitio_%02d.time", i);
+            snprintf (filename, 17, "partitio_%02d.time", i);
             file = fopen(filename, "w");
             SC_CHECK_ABORT(file, "Can't write to file");
-            fprintf(file, "Init took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
+            fprintf(file, "Step took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
             fclose(file);
         }
         //
