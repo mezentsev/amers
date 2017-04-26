@@ -58,15 +58,6 @@ void mesh_neighbors_iter(p8est_t *p8est,
                          void *ghost_data);
 
 /**
- * Calculate mid point of quadrant
- * @param p8est
- * @param tree
- * @param q
- * @param xyz
- */
-void get_midpoint(p8est_t *p8est, p4est_topidx_t tree, p8est_quadrant_t *q, double xyz[3]);
-
-/**
  * Refine all cells
  * @param p8est
  * @param which_tree

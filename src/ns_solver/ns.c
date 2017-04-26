@@ -1,8 +1,5 @@
-//
-// Created by Vadim Mezentsev on 01.01.17.
-//
-
 #include "ns.h"
+#include "util.h"
 
 void init(p8est_t *p8est,
           p4est_topidx_t which_tree,
@@ -11,20 +8,6 @@ void init(p8est_t *p8est,
     data_t          *data = (data_t *) quad->p.user_data;
 
     init_solver(data, ctx);
-}
-
-void get_midpoint(p8est_t *p8est,
-                  p4est_topidx_t tree,
-                  p8est_quadrant_t *q,
-                  double xyz[3]) {
-    p4est_qcoord_t half_length = P8EST_QUADRANT_LEN(q->level) / 2;
-
-    p8est_qcoord_to_vertex (p8est->connectivity,
-                            tree,
-                            q->x + half_length,
-                            q->y + half_length,
-                            q->z + half_length,
-                            xyz);
 }
 
 int refine_always (p8est_t *p8est,

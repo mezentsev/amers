@@ -21,14 +21,6 @@ typedef struct data {
         double PE;
     } Q;
 
-    struct {
-        double D;
-        double u1;
-        double u2;
-        double u3;
-        double P;
-    } Z;
-
 } data_t;
 
 
@@ -42,6 +34,5 @@ typedef struct context {
 
     double Adiabatic;
 } context_t;
-
 
 #endif //AMR_DATA_H
