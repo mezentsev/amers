@@ -1,3 +1,5 @@
+project(amr)
+
 set(AMR_SOURCE amr.c amr.h)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test_prj)

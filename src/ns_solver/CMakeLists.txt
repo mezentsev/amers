@@ -1,3 +1,5 @@
+project(ns)
+
 set(NS_SOURCE
         ns.c ns.h
         solver.h solver.c
