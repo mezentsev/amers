@@ -3,13 +3,14 @@
 //
 
 #include "ns.h"
-#include "data.h"
 
 void init(p8est_t *p8est,
           p4est_topidx_t which_tree,
           p8est_quadrant_t *quad) {
-    ctx_t       *ctx = (ctx_t *) p8est->user_pointer;
-    data_t      *data = (data_t *) quad->p.user_data;
+    context_t       *ctx = (context_t *) p8est->user_pointer;
+    data_t          *data = (data_t *) quad->p.user_data;
+
+    init_solver(data, ctx);
 }
 
 void get_midpoint(p8est_t *p8est,
@@ -35,7 +36,7 @@ int refine_always (p8est_t *p8est,
 int refine_fn (p8est_t *p8est,
            p4est_topidx_t which_tree,
            p8est_quadrant_t *q) {
-    ctx_t *ctx = (ctx_t *) p8est->user_pointer;
+    context_t *ctx = (context_t *) p8est->user_pointer;
     double midpoint[3];
     double h = (double) P4EST_QUADRANT_LEN (q->level) / (double) P4EST_ROOT_LEN;
     double l;
@@ -66,7 +67,7 @@ int main (int argc, char **argv){
     char                    filename[BUFSIZ] = { '\0' };
     int                     mpiret;
     sc_MPI_Comm             mpicomm;
-    ctx_t                   ctx;
+    context_t               ctx;
     p8est_t                 *p8est;
     p8est_connectivity_t    *conn;
     clock_t                 start;
@@ -80,6 +81,8 @@ int main (int argc, char **argv){
 
     ctx.width = 0.2;
     ctx.level = 4;
+
+    ctx.Adiabatic = 1.4; //air
 
     /* Initialize MPI; see sc_mpi.h.
      * If configure --enable-mpi is given these are true MPI calls.

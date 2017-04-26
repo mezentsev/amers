@@ -17,6 +17,9 @@
 #include <p8est_bits.h>
 #include <p8est_mesh.h>
 
+#include "data.h"
+#include "solver.h"
+
 /**
  * Write solution in step to VTK
  * @param p8est
