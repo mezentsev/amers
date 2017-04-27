@@ -16,6 +16,8 @@
 #include <p8est.h>
 #include <p8est_bits.h>
 #include <p8est_mesh.h>
+#include <p8est_search.h>
+#include <p8est_ghost.h>
 
 #include "data.h"
 #include "solver.h"
@@ -35,6 +37,20 @@ void write_solution(p8est_t *p8est,
  */
 void solve(p8est_t *p8est,
            int step);
+
+
+/**
+ * Checks if a quadrant's face is on the boundary of the forest
+ * @param p4est
+ * @param treeid
+ * @param face
+ * @param q
+ * @return
+ */
+int quadrant_on_face_boundary (p8est_t * p4est,
+                               p4est_topidx_t treeid,
+                               int face,
+                               const p8est_quadrant_t * q);
 
 /**
  * Iterate throw each cell in mesh

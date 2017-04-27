@@ -19,6 +19,16 @@ void init_solver(data_t *q, context_t *ctx);
 void cflq(data_t *data, context_t *ctx, double h);
 
 /**
+ * Calculate flow
+ * @param data
+ * @param nx
+ * @param ny
+ * @param nz
+ * @return
+ */
+double flow(data_t *data, double nx, double ny, double nz);
+
+/**
  * Transform Z to Q
  * @param data
  */

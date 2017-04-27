@@ -1,3 +1,4 @@
+
 #include "ns.h"
 #include "util.h"
 
@@ -8,6 +9,40 @@ void init(p8est_t *p8est,
     data_t          *data = (data_t *) quad->p.user_data;
 
     init_solver(data, ctx);
+}
+
+int quadrant_on_face_boundary (p8est_t * p4est,
+                               p4est_topidx_t treeid,
+                               int face,
+                               const p8est_quadrant_t * q)
+{
+    p4est_qcoord_t      dh, xyz;
+    p8est_connectivity_t *conn = p4est->connectivity;
+
+    P4EST_ASSERT (0 <= face && face < P8EST_FACES);
+    P4EST_ASSERT (p8est_quadrant_is_valid (q));
+
+    if (conn->tree_to_tree[P8EST_FACES * treeid + face] != treeid ||
+        (int) conn->tree_to_face[P8EST_FACES * treeid + face] != face) {
+        return 0;
+    }
+
+    dh = P8EST_LAST_OFFSET (q->level);
+    switch (face / 2) {
+        case 0:
+            xyz = q->x;
+            break;
+        case 1:
+            xyz = q->y;
+            break;
+        case 2:
+            xyz = q->z;
+            break;
+        default:
+            SC_ABORT_NOT_REACHED ();
+            break;
+    }
+    return xyz == ((face & 0x01) ? dh : 0);
 }
 
 int refine_always (p8est_t *p8est,
@@ -43,14 +78,18 @@ void mesh_neighbors_iter(p8est_t *p8est,
                          p8est_mesh_t *mesh,
                          void *ghost_data)
 {
+    const int           HF         = P4EST_HALF * P4EST_FACES;                              // quad_to_face max
+    p4est_locidx_t      QpG        = mesh->local_num_quadrants + mesh->ghost_num_quadrants; // quad_to_quad max
+
     p8est_quadrant_t    *neighbor  = NULL;
     p4est_topidx_t      which_tree = -1;
     context_t           *ctx       = (context_t *) p8est->user_pointer;
 
     p8est_mesh_face_neighbor_t mfn;
     p4est_locidx_t      qumid, quadrant_id, which_quad;
-    p8est_quadrant_t    *q;                             /* current quad */
-    data_t              *g_data;                        /* ghost data */
+    p8est_quadrant_t    qn[6];                          // face neighbor quads
+    p8est_quadrant_t    *q;                             // current quad
+    data_t              *g_data;                        // ghost data
     data_t              *data;
 
     int                 nface;
@@ -59,6 +98,7 @@ void mesh_neighbors_iter(p8est_t *p8est,
     double              n_data = 0;  /* neighbors data */
     double              h;
     double              nx, ny, nz;
+    int                 e0, e1, e0b, e1b, e2, e3;
 
     for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid)
     {
@@ -72,7 +112,70 @@ void mesh_neighbors_iter(p8est_t *p8est,
                                         which_tree,
                                         quadrant_id);
 
-        while((neighbor = p8est_mesh_face_neighbor_next (&mfn, &which_tree,
+        for (nface = 0; nface < P8EST_FACES; ++nface){
+            if (quadrant_on_face_boundary(p8est, which_tree, nface, q)) {
+                SC_PRODUCTIONF("Boundary on face: %d\n", nface);
+                continue;
+            }
+
+            // neighbor orientation
+            nx = 0;
+            ny = 0;
+            nz = 0;
+
+            switch (nface) {
+                case 0:                      // -x side
+                    nx = -1;
+                    break;
+                case 1:                      // +x side
+                    nx = 1;
+                    break;
+                case 2:                      // -y side
+                    ny = -1;
+                    break;
+                case 3:                      // +y side
+                    ny = 1;
+                    break;
+                case 4:                      // -z side
+                    nz = -1;
+                    break;
+                case 5:                      // +z side
+                    nz = 1;
+                    break;
+                default:
+                    SC_ABORT_NOT_REACHED ();
+                    break;
+            }
+
+            p8est_quadrant_all_face_neighbors(q, nface, qn);
+            e0 = p8est_face_quadrant_exists (p8est, ghost, which_tree, &qn[0],
+                                             NULL, NULL, NULL);
+            e1 = p8est_face_quadrant_exists (p8est, ghost, which_tree, &qn[1],
+                                             NULL, NULL, NULL);
+
+            P4EST_ASSERT(e0 == e1);
+
+            e2 = p8est_face_quadrant_exists (p8est, ghost, which_tree, &qn[P8EST_HALF],
+                                             NULL, NULL, NULL);
+            e3 = p8est_face_quadrant_exists (p8est, ghost, which_tree, &qn[P8EST_HALF + 1],
+                                             NULL, NULL, NULL);
+
+            if (quadrant_id == mesh->quad_to_face[P4EST_FACES * qumid + nface]){
+                SC_PRODUCTIONF("Boundary: [%d] (%d;%d;%d) Face: %d. e0 %d, e1 %d, e2 %d, e3 %d; QUAD_TO_QUAD %d of %d, QUAD_TO_FACE %d of %d\n",
+                               quadrant_id,
+                               q->x, q->y, q->z, nface, e0, e1, e2, e3,
+                               mesh->quad_to_quad[P4EST_FACES * qumid + nface],
+                               QpG,
+                               mesh->quad_to_face[P4EST_FACES * qumid + nface],
+                               HF
+                );
+            }
+
+            // TODO Calculate flow
+            flow(data, nx, ny, nz);
+        }
+
+        /*while((neighbor = p8est_mesh_face_neighbor_next (&mfn, &which_tree,
                                                          &which_quad, &nface, &nrank)) != NULL)
         {
             g_data = (data_t *) p8est_mesh_face_neighbor_data (&mfn, ghost_data);
@@ -81,32 +184,32 @@ void mesh_neighbors_iter(p8est_t *p8est,
             ny = 0;
             nz = 0;
 
-            /* neighbor orientation */
+            // neighbor orientation
             switch (nface) {
-                case 0:                      /* -x side */
+                case 0:                      // -x side
                     nx = -1;
                     break;
-                case 1:                      /* +x side */
+                case 1:                      // +x side
                     nx = 1;
                     break;
-                case 2:                      /* -y side */
+                case 2:                      // -y side
                     ny = -1;
                     break;
-                case 3:                      /* +y side */
+                case 3:                      // +y side
                     ny = 1;
                     break;
-                case 4:                      /* -z side */
+                case 4:                      // -z side
                     nz = -1;
                     break;
-                case 5:                      /* +z side */
+                case 5:                      // +z side
                     nz = 1;
                     break;
             }
 
             h = (double) P4EST_QUADRANT_LEN (q->level) / (double) P4EST_ROOT_LEN;
 
-            // TODO working with neighbours
-        }
+            // calculate flow
+        }*/
     }
 }
 

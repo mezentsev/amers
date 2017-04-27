@@ -1,10 +1,7 @@
 #include <math.h>
 #include <sc.h>
-#include <assert.h>
 #include "solver.h"
-#include "data.h"
 #include "util.h"
-#include "math.h"
 
 void setq(data_t *data){
     data->Q.D   = data->Density;
@@ -42,12 +39,12 @@ void init_solver(data_t *data, context_t *ctx){
 }
 
 void cflq(data_t *data, context_t *ctx, double length) {
-    assert(length > 0);
-    assert(data->Pressure > 0);
-    assert(data->Density > 0);
-    assert(data->u1 != 0);
-    assert(data->u2 != 0);
-    assert(data->u3 != 0);
+    P4EST_ASSERT(length > 0);
+    P4EST_ASSERT(data->Pressure > 0);
+    P4EST_ASSERT(data->Density > 0);
+    P4EST_ASSERT(data->u1 != 0);
+    P4EST_ASSERT(data->u2 != 0);
+    P4EST_ASSERT(data->u3 != 0);
 
     double t1;
     double t2;
