@@ -38,9 +38,156 @@ int refine_fn (p8est_t *p8est,
     return 0;
 }
 
+void mesh_neighbors_iter(p8est_t *p8est,
+                         p8est_ghost_t *ghost,
+                         p8est_mesh_t *mesh,
+                         void *ghost_data)
+{
+    p8est_quadrant_t    *neighbor  = NULL;
+    p4est_topidx_t      which_tree = -1;
+    context_t           *ctx       = (context_t *) p8est->user_pointer;
+
+    p8est_mesh_face_neighbor_t mfn;
+    p4est_locidx_t      qumid, quadrant_id, which_quad;
+    p8est_quadrant_t    *q;                             /* current quad */
+    data_t              *g_data;                        /* ghost data */
+    data_t              *data;
+
+    int                 nface;
+    int                 nrank;
+    double              i = 0;
+    double              n_data = 0;  /* neighbors data */
+    double              h;
+    double              nx, ny, nz;
+
+    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid)
+    {
+        q = p8est_mesh_quadrant_cumulative (p8est, qumid,
+                                            &which_tree, &quadrant_id);
+        data = (data_t *) q->p.user_data;
+        p8est_mesh_face_neighbor_init2 (&mfn,
+                                        p8est,
+                                        ghost,
+                                        mesh,
+                                        which_tree,
+                                        quadrant_id);
+
+        while((neighbor = p8est_mesh_face_neighbor_next (&mfn, &which_tree,
+                                                         &which_quad, &nface, &nrank)) != NULL)
+        {
+            g_data = (data_t *) p8est_mesh_face_neighbor_data (&mfn, ghost_data);
+
+            nx = 0;
+            ny = 0;
+            nz = 0;
+
+            /* neighbor orientation */
+            switch (nface) {
+                case 0:                      /* -x side */
+                    nx = -1;
+                    break;
+                case 1:                      /* +x side */
+                    nx = 1;
+                    break;
+                case 2:                      /* -y side */
+                    ny = -1;
+                    break;
+                case 3:                      /* +y side */
+                    ny = 1;
+                    break;
+                case 4:                      /* -z side */
+                    nz = -1;
+                    break;
+                case 5:                      /* +z side */
+                    nz = 1;
+                    break;
+            }
+
+            h = (double) P4EST_QUADRANT_LEN (q->level) / (double) P4EST_ROOT_LEN;
+
+            // TODO working with neighbours
+        }
+    }
+}
+
+void mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh)
+{
+    p4est_topidx_t      which_tree = -1;
+    context_t           *ctx       = (context_t *) p8est->user_pointer;
+
+    p8est_mesh_face_neighbor_t mfn;
+    p4est_locidx_t      qumid, quadrant_id;
+    p8est_quadrant_t    *q;                             /* current quad */
+    data_t              *data;
+
+    double              h;
+    double              p[3];
+
+    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid)
+    {
+        q = p8est_mesh_quadrant_cumulative (p8est, qumid,
+                                            &which_tree, &quadrant_id);
+
+        /* side length */
+        h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
+        get_midpoint(p8est, which_tree, q, p);
+
+        data = (data_t *) q->p.user_data;
+
+        // calculate CFL
+        cflq(data, ctx, h);
+    }
+}
+
 void solve(p8est_t *p8est,
            int step) {
     SC_PRODUCTIONF("Start solve step %d\n", step);
+
+    int                 mpiret;
+    data_t              *ghost_data;
+    context_t           *ctx = (context_t *) p8est->user_pointer;
+    p8est_ghost_t       *ghost;
+    p8est_mesh_t        *mesh;
+
+    /* create the ghost quadrants */
+    ghost = p8est_ghost_new (p8est, P8EST_CONNECT_FACE);
+    ghost_data = P4EST_ALLOC (data_t, ghost->ghosts.elem_count);
+    p8est_ghost_exchange_data (p8est, ghost, ghost_data);
+
+    mesh = p8est_mesh_new(p8est, ghost, P8EST_CONNECT_FACE);
+    SC_PRODUCTIONF("Used memory: %ld\n", p8est_mesh_memory_used(mesh));
+
+    /* calc f2 and partials */
+    SC_PRODUCTION("Cell iter started\n");
+    mesh_iter(p8est, mesh);
+    SC_PRODUCTION("Cell iter ended\n");
+
+    /* calc min dt */
+    SC_PRODUCTIONF("dt old: %.20lf\n", ctx->dt);
+    mpiret = MPI_Allreduce(MPI_IN_PLACE, &ctx->dt, 1, MPI_DOUBLE, MPI_MIN, p8est->mpicomm);
+    SC_CHECK_MPI(mpiret);
+    SC_PRODUCTIONF("dt new: %.20lf\n", ctx->dt);
+
+    /* exchange ghost data */
+    SC_PRODUCTION("Exchange started\n");
+    p8est_ghost_exchange_data (p8est, ghost, ghost_data);
+    SC_PRODUCTION("Exchange ended\n");
+    /* calc f1 */
+    SC_PRODUCTION("Neighbors iter started\n");
+    mesh_neighbors_iter(p8est, ghost, mesh, ghost_data);
+    SC_PRODUCTION("Neighbors iter ended\n");
+    /* exchange ghost data */
+    SC_PRODUCTION("Exchange started\n");
+    p8est_ghost_exchange_data (p8est, ghost, ghost_data);
+    SC_PRODUCTION("Exchange ended\n");
+
+    /* generate vtk and print solution */
+    //write_solution(p8est, step);
+
+    /* clear */
+    p8est_mesh_destroy(mesh);
+    P4EST_FREE (ghost_data);
+    p4est_ghost_destroy (ghost);
 
     SC_PRODUCTIONF("End solve step %d\n", step);
 }
@@ -63,7 +210,8 @@ int main (int argc, char **argv){
     ctx.center[2] = 0.5;
 
     ctx.width = 0.2;
-    ctx.level = 4;
+    ctx.level = 1;
+    ctx.dt = 0;
 
     ctx.Adiabatic = 1.4; //air
 

@@ -32,6 +32,7 @@ typedef struct context {
     double width;
     double level;
 
+    double dt;
     double Adiabatic;
 } context_t;
 
