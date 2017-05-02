@@ -7,18 +7,23 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 
+int ipow(int base, int exp);
+
 /**
  * Get the coordinates of the midpoint of a quadrant
  */
 void get_midpoint(p8est_t *p8est, p4est_topidx_t tree, p8est_quadrant_t *q, double xyz[3]);
 
 /**
- * Calculation speed sound
- * @param density
- * @param pressure
- * @param adiabatic
+ * Detect boundary
+ * @param p4est
+ * @param tt
+ * @param node
  * @return
  */
-double calc_speed_sound(double density, double pressure, double adiabatic);
+int is_quadrant_on_face_boundary (p8est_t * p4est,
+                                  p4est_topidx_t treeid,
+                                  int face,
+                                  const p8est_quadrant_t * q);
 
 #endif //AMR_UTIL_H

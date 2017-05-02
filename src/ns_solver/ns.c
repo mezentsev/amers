@@ -1,6 +1,7 @@
 
 #include "ns.h"
 #include "util.h"
+#include "data.h"
 
 void init(p8est_t *p8est,
           p4est_topidx_t which_tree,
@@ -9,40 +10,11 @@ void init(p8est_t *p8est,
     data_t          *data = (data_t *) quad->p.user_data;
 
     init_solver(data, ctx);
-}
 
-int quadrant_on_face_boundary (p8est_t * p4est,
-                               p4est_topidx_t treeid,
-                               int face,
-                               const p8est_quadrant_t * q)
-{
-    p4est_qcoord_t      dh, xyz;
-    p8est_connectivity_t *conn = p4est->connectivity;
-
-    P4EST_ASSERT (0 <= face && face < P8EST_FACES);
-    P4EST_ASSERT (p8est_quadrant_is_valid (q));
-
-    if (conn->tree_to_tree[P8EST_FACES * treeid + face] != treeid ||
-        (int) conn->tree_to_face[P8EST_FACES * treeid + face] != face) {
-        return 0;
-    }
-
-    dh = P8EST_LAST_OFFSET (q->level);
-    switch (face / 2) {
-        case 0:
-            xyz = q->x;
-            break;
-        case 1:
-            xyz = q->y;
-            break;
-        case 2:
-            xyz = q->z;
-            break;
-        default:
-            SC_ABORT_NOT_REACHED ();
-            break;
-    }
-    return xyz == ((face & 0x01) ? dh : 0);
+    data->boundary = -1;
+    data->bx = 0;
+    data->by = 0;
+    data->bz = 0;
 }
 
 int refine_always (p8est_t *p8est,
@@ -52,8 +24,8 @@ int refine_always (p8est_t *p8est,
 }
 
 int refine_fn (p8est_t *p8est,
-           p4est_topidx_t which_tree,
-           p8est_quadrant_t *q) {
+               p4est_topidx_t which_tree,
+               p8est_quadrant_t *q) {
     context_t *ctx = (context_t *) p8est->user_pointer;
     double midpoint[3];
     double h = (double) P4EST_QUADRANT_LEN (q->level) / (double) P4EST_ROOT_LEN;
@@ -76,35 +48,30 @@ int refine_fn (p8est_t *p8est,
 void mesh_neighbors_iter(p8est_t *p8est,
                          p8est_ghost_t *ghost,
                          p8est_mesh_t *mesh,
-                         void *ghost_data)
-{
-    const int           HF         = P4EST_HALF * P4EST_FACES;                              // quad_to_face max
-    p4est_locidx_t      QpG        = mesh->local_num_quadrants + mesh->ghost_num_quadrants; // quad_to_quad max
-
+                         void *ghost_data) {
     p8est_quadrant_t    *neighbor  = NULL;
     p4est_topidx_t      which_tree = -1;
     context_t           *ctx       = (context_t *) p8est->user_pointer;
 
     p8est_mesh_face_neighbor_t mfn;
     p4est_locidx_t      qumid, quadrant_id, which_quad;
-    p8est_quadrant_t    qn[6];                          // face neighbor quads
     p8est_quadrant_t    *q;                             // current quad
     data_t              *g_data;                        // ghost data
     data_t              *data;
 
     int                 nface;
     int                 nrank;
-    double              i = 0;
-    double              n_data = 0;  /* neighbors data */
     double              h;
     double              nx, ny, nz;
-    int                 e0, e1, e0b, e1b, e2, e3;
 
-    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid)
-    {
-        q = p8est_mesh_quadrant_cumulative (p8est, qumid,
-                                            &which_tree, &quadrant_id);
+    // iterate for all quadrants
+    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid) {
+        q = p8est_mesh_quadrant_cumulative (p8est,
+                                            qumid,
+                                            &which_tree,
+                                            &quadrant_id);
         data = (data_t *) q->p.user_data;
+
         p8est_mesh_face_neighbor_init2 (&mfn,
                                         p8est,
                                         ghost,
@@ -112,11 +79,14 @@ void mesh_neighbors_iter(p8est_t *p8est,
                                         which_tree,
                                         quadrant_id);
 
-        for (nface = 0; nface < P8EST_FACES; ++nface){
-            if (quadrant_on_face_boundary(p8est, which_tree, nface, q)) {
-                SC_PRODUCTIONF("Boundary on face: %d\n", nface);
-                continue;
-            }
+
+        while ((neighbor = p8est_mesh_face_neighbor_next(&mfn,
+                                                         &which_tree,
+                                                         &which_quad,
+                                                         &nface,
+                                                         &nrank)) != NULL) {
+            // get neighbor data using ghosts
+            g_data = (data_t *) p8est_mesh_face_neighbor_data (&mfn, ghost_data);
 
             // neighbor orientation
             nx = 0;
@@ -147,74 +117,27 @@ void mesh_neighbors_iter(p8est_t *p8est,
                     break;
             }
 
-            p8est_quadrant_all_face_neighbors(q, nface, qn);
-            e0 = p8est_face_quadrant_exists (p8est, ghost, which_tree, &qn[0],
-                                             NULL, NULL, NULL);
-            e1 = p8est_face_quadrant_exists (p8est, ghost, which_tree, &qn[1],
-                                             NULL, NULL, NULL);
+            // detect boundary
+            if (is_quadrant_on_face_boundary(p8est, which_tree, nface, q)) {
+                if (data->boundary == -1)
+                    data->boundary = ipow(2, nface);
+                else
+                    data->boundary |= ipow(2, nface);
 
-            P4EST_ASSERT(e0 == e1);
-
-            e2 = p8est_face_quadrant_exists (p8est, ghost, which_tree, &qn[P8EST_HALF],
-                                             NULL, NULL, NULL);
-            e3 = p8est_face_quadrant_exists (p8est, ghost, which_tree, &qn[P8EST_HALF + 1],
-                                             NULL, NULL, NULL);
-
-            if (quadrant_id == mesh->quad_to_face[P4EST_FACES * qumid + nface]){
-                SC_PRODUCTIONF("Boundary: [%d] (%d;%d;%d) Face: %d. e0 %d, e1 %d, e2 %d, e3 %d; QUAD_TO_QUAD %d of %d, QUAD_TO_FACE %d of %d\n",
-                               quadrant_id,
-                               q->x, q->y, q->z, nface, e0, e1, e2, e3,
-                               mesh->quad_to_quad[P4EST_FACES * qumid + nface],
-                               QpG,
-                               mesh->quad_to_face[P4EST_FACES * qumid + nface],
-                               HF
-                );
+                data->bx = nx;
+                data->by = ny;
+                data->bz = nz;
             }
+
+            h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
 
             // TODO Calculate flow
             flow(data, nx, ny, nz);
         }
-
-        /*while((neighbor = p8est_mesh_face_neighbor_next (&mfn, &which_tree,
-                                                         &which_quad, &nface, &nrank)) != NULL)
-        {
-            g_data = (data_t *) p8est_mesh_face_neighbor_data (&mfn, ghost_data);
-
-            nx = 0;
-            ny = 0;
-            nz = 0;
-
-            // neighbor orientation
-            switch (nface) {
-                case 0:                      // -x side
-                    nx = -1;
-                    break;
-                case 1:                      // +x side
-                    nx = 1;
-                    break;
-                case 2:                      // -y side
-                    ny = -1;
-                    break;
-                case 3:                      // +y side
-                    ny = 1;
-                    break;
-                case 4:                      // -z side
-                    nz = -1;
-                    break;
-                case 5:                      // +z side
-                    nz = 1;
-                    break;
-            }
-
-            h = (double) P4EST_QUADRANT_LEN (q->level) / (double) P4EST_ROOT_LEN;
-
-            // calculate flow
-        }*/
     }
 }
 
-void mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh)
-{
+void mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh) {
     p4est_topidx_t      which_tree = -1;
     context_t           *ctx       = (context_t *) p8est->user_pointer;
 
@@ -226,8 +149,7 @@ void mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh)
     double              h;
     double              p[3];
 
-    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid)
-    {
+    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid) {
         q = p8est_mesh_quadrant_cumulative (p8est, qumid,
                                             &which_tree, &quadrant_id);
 
@@ -275,17 +197,18 @@ void solve(p8est_t *p8est,
     SC_PRODUCTION("Exchange started\n");
     p8est_ghost_exchange_data (p8est, ghost, ghost_data);
     SC_PRODUCTION("Exchange ended\n");
-    /* calc f1 */
+
     SC_PRODUCTION("Neighbors iter started\n");
     mesh_neighbors_iter(p8est, ghost, mesh, ghost_data);
     SC_PRODUCTION("Neighbors iter ended\n");
+
     /* exchange ghost data */
     SC_PRODUCTION("Exchange started\n");
     p8est_ghost_exchange_data (p8est, ghost, ghost_data);
     SC_PRODUCTION("Exchange ended\n");
 
     /* generate vtk and print solution */
-    //write_solution(p8est, step);
+    write_vtk(p8est, step);
 
     /* clear */
     p8est_mesh_destroy(mesh);
@@ -295,7 +218,93 @@ void solve(p8est_t *p8est,
     SC_PRODUCTIONF("End solve step %d\n", step);
 }
 
-int main (int argc, char **argv){
+void get_boundary_data(p8est_iter_volume_info_t *info, void *user_data) {
+    sc_array_t          *u_interp = (sc_array_t *) user_data;
+    /* we passed the array of values to fill as the
+     * user_data in the call to p4est_iterate */
+
+    p8est_t             *p8est = info->p4est;
+    p8est_quadrant_t    *q = info->quad;
+    p4est_topidx_t      which_tree = info->treeid;
+    p4est_locidx_t      local_id = info->quadid;
+    /* this is the index of q *within its tree's numbering*.
+     * We want to convert it its index for all the quadrants on this process, which we do below */
+
+    p8est_tree_t        *tree;
+    data_t              *data = (data_t *) q->p.user_data;
+    p4est_locidx_t      array_offset;
+    double              *this_u_ptr;
+    int                 i;
+
+    tree = p8est_tree_array_index (p8est->trees, which_tree);
+    local_id += tree->quadrants_offset;             /* now the id is relative to the MPI process */
+    array_offset = P8EST_CHILDREN * local_id;      /* each local quadrant has 2^d (P4EST_CHILDREN) values in u_interp */
+
+    for (i = 0; i < P8EST_CHILDREN; i++) {
+        this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
+        this_u_ptr[0] = data->boundary;
+    }
+}
+
+void write_vtk(p8est_t *p8est, int step) {
+    char                filename[BUFSIZ] = { '\0' };
+    p4est_locidx_t      numquads;
+    sc_array_t          *boundary_data;
+
+    snprintf (filename, 12, "solution_%02d", step);
+    numquads = p8est->local_num_quadrants;
+
+    /* create a vector with one value for the corner of every local quadrant
+     * (the number of children is always the same as the number of corners) */
+    boundary_data = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+
+    /* Use the iterator to visit every cell and fill in the solution values.
+     * Using the iterator is not absolutely necessary in this case: we could
+     * also loop over every tree (there is only one tree in this case) and loop
+     * over every quadrant within every tree */
+    p8est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
+                  (void *) boundary_data,     /* pass in boundary so that we can fill it */
+                  get_boundary_data,    /* callback function that fill boundary */
+                  NULL,          /* there is no callback for the faces between quadrants */
+                  NULL,          /* there is no callback for the edges between quadrants */
+                  NULL);         /* there is no callback for the corners between quadrants */
+
+    /* create VTK output context and set its parameters */
+    p8est_vtk_context_t *context = p8est_vtk_context_new (p8est, filename);
+    p8est_vtk_context_set_scale (context, 0.99);  /* quadrant at almost full scale */
+
+    /* begin writing the output files */
+    context = p8est_vtk_write_header (context);
+    SC_CHECK_ABORT (context != NULL,
+                    P8EST_STRING "_vtk: Error writing vtk header");
+
+    /* do not write the tree id's of each quadrant
+     * (there is only one tree in this example) */
+    context = p8est_vtk_write_cell_dataf(context, 0, 1,  /* do write the refinement level of each quadrant */
+                                         1,      /* do write the mpi process id of each quadrant */
+                                         0,      /* do not wrap the mpi rank (if this were > 0, the modulus of the rank relative to this number would be written instead of the rank) */
+                                         0,      /* there is no custom cell scalar data. */
+                                         0,      /* there is no custom cell vector data. */
+                                         context);       /* mark the end of the variable cell data. */
+    SC_CHECK_ABORT (context != NULL,
+                    P8EST_STRING "_vtk: Error writing cell data");
+
+    /* write one scalar field: the solution value */
+    context = p8est_vtk_write_point_dataf(context, 1, 0,
+                                          "boundary",
+                                          boundary_data,
+                                          context);
+    SC_CHECK_ABORT (context != NULL,
+                    P8EST_STRING "_vtk: Error writing cell data");
+
+    const int retval = p8est_vtk_write_footer(context);
+    SC_CHECK_ABORT (!retval,
+                    P8EST_STRING "_vtk: Error writing footer");
+
+    sc_array_destroy(boundary_data);
+}
+
+int main (int argc, char **argv) {
     int                     i;
     char                    filename[BUFSIZ] = { '\0' };
     int                     mpiret;
@@ -331,19 +340,18 @@ int main (int argc, char **argv){
     sc_init (mpicomm, 1, 1, NULL, SC_LP_PRODUCTION);
     p4est_init(NULL, SC_LP_PRODUCTION);
 
-    conn = p8est_connectivity_new_periodic();
-
+    conn = p8est_connectivity_new_unitcube();
 
     p8est = p8est_new_ext (mpicomm, /* communicator */
                            conn,    /* connectivity */
                            0,       /* minimum quadrants per MPI process */
-                           4,       /* minimum level of refinement */
+                           3,       /* minimum level of refinement */
                            1,       /* fill uniform */
                            sizeof (data_t),         /* data size */
                            init,  /* initializes data */
                            (void *) (&ctx));              /* context */
 
-    p8est_refine(p8est, 1, refine_fn, init);
+    //p8est_refine(p8est, 1, refine_fn, init);
     //p8est_coarsen(p8est, 1, coarsen_fn, init);
 
     p8est_balance(p8est, P4EST_CONNECT_FULL, init);

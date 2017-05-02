@@ -3,7 +3,7 @@
 #include "solver.h"
 #include "util.h"
 
-void setq(data_t *data){
+void setq(data_t *data) {
     data->Q.D   = data->Density;
     data->Q.Du1 = data->Density * data->u1;
     data->Q.Du2 = data->Density * data->u2;
@@ -11,7 +11,7 @@ void setq(data_t *data){
     data->Q.PE  = data->Pressure * data->E;
 }
 
-void newq(data_t *data, context_t *ctx, double cfl, double length, double neighbors_sum){
+void newq(data_t *data, context_t *ctx, double cfl, double length, double neighbors_sum) {
     data_t new_data;
     double V = pow(length, 3);
 
@@ -23,7 +23,7 @@ double flow(data_t *data, double nx, double ny, double nz) {
     return 0;
 }
 
-void init_solver(data_t *data, context_t *ctx){
+void init_solver(data_t *data, context_t *ctx) {
     double e;
 
     data->Density = 1;
@@ -61,3 +61,6 @@ void cflq(data_t *data, context_t *ctx, double length) {
     ctx->dt = (ctx->dt == 0) ? dt : MIN(ctx->dt, dt);
 }
 
+double calc_speed_sound(double density, double pressure, double adiabatic) {
+    return sqrt(adiabatic * pressure / density);
+}

@@ -21,6 +21,18 @@ typedef struct data {
         double PE;
     } Q;
 
+    /**
+     * -1 is no boundary
+     */
+    int boundary;
+
+    /**
+     * Boundary side
+     */
+    double bx;
+    double by;
+    double bz;
+
 } data_t;
 
 

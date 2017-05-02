@@ -34,4 +34,14 @@ double flow(data_t *data, double nx, double ny, double nz);
  */
 void setq(data_t *data);
 
+
+/**
+ * Calculation speed sound
+ * @param density
+ * @param pressure
+ * @param adiabatic
+ * @return
+ */
+double calc_speed_sound(double density, double pressure, double adiabatic);
+
 #endif //AMR_SOLVER_H
