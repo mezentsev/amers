@@ -56,3 +56,19 @@ int ipow(int base, int exp) {
 
     return result;
 }
+
+void quadrant_pprint (p8est_quadrant_t * q, int is_ghost, int rank) {
+    p4est_qcoord_t x = (q->x) >> (P8EST_MAXLEVEL - q->level);
+    p4est_qcoord_t y = (q->y) >> (P8EST_MAXLEVEL - q->level);
+    p4est_qcoord_t z = (q->z) >> (P8EST_MAXLEVEL - q->level);
+
+    printf("[p4est %d] x %d y %d z %d level %d", rank, x, y, z, q->level);
+
+    if (is_ghost) {
+        printf(" value ghost");
+    } else {
+        printf(" value %d", q->p.user_int);
+    }
+
+    printf("\n");
+}

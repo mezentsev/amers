@@ -26,4 +26,12 @@ int is_quadrant_on_face_boundary (p8est_t * p4est,
                                   int face,
                                   const p8est_quadrant_t * q);
 
+/**
+ * Output information about quadrant
+ * @param q
+ * @param is_ghost
+ * @param rank
+ */
+void quadrant_pprint (p8est_quadrant_t * q, int is_ghost, int rank);
+
 #endif //AMR_UTIL_H

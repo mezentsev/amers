@@ -50,20 +50,25 @@ void mesh_neighbors_iter(p8est_t *p8est,
                          p8est_ghost_t *ghost,
                          p8est_mesh_t *mesh,
                          void *ghost_data) {
-    p8est_quadrant_t    *neighbor  = NULL;
     p4est_topidx_t      which_tree = -1;
     context_t           *ctx       = (context_t *) p8est->user_pointer;
 
     p8est_mesh_face_neighbor_t mfn;
-    p4est_locidx_t      qumid, quadrant_id, which_quad;
+    p4est_locidx_t      qumid, quadrant_id;
+
     p8est_quadrant_t    *q;                             // current quad
+    p8est_quadrant_t    nq[P8EST_FACES];                // neighbor quads
+
     data_t              *g_data;                        // ghost data
     data_t              *data;
 
     int                 nface;
-    int                 nrank;
     double              h;
     double              nx, ny, nz;
+
+    int                 small_neighbors;
+    int                 same_neighbor;
+    int                 big_neighbor;
 
     // iterate for all quadrants
     for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid) {
@@ -73,22 +78,8 @@ void mesh_neighbors_iter(p8est_t *p8est,
                                             &quadrant_id);
         data = (data_t *) q->p.user_data;
 
-        p8est_mesh_face_neighbor_init2 (&mfn,
-                                        p8est,
-                                        ghost,
-                                        mesh,
-                                        which_tree,
-                                        quadrant_id);
-
-
-        while ((neighbor = p8est_mesh_face_neighbor_next(&mfn,
-                                                         &which_tree,
-                                                         &which_quad,
-                                                         &nface,
-                                                         &nrank)) != NULL) {
-            // get neighbor data using ghosts
-            g_data = (data_t *) p8est_mesh_face_neighbor_data (&mfn, ghost_data);
-
+        // loop for all faces
+        for (nface = 0; nface < P8EST_FACES; ++nface){
             // neighbor orientation
             nx = 0;
             ny = 0;
@@ -114,12 +105,18 @@ void mesh_neighbors_iter(p8est_t *p8est,
                     nz = 1;
                     break;
                 default:
-                    nx = ny = nz = 0;
                     break;
             }
 
-            // detect boundary
-            if (0 <= nface && nface < P8EST_FACES && is_quadrant_on_face_boundary(p8est, which_tree, nface, q)) {
+            p8est_quadrant_all_face_neighbors(q, nface, nq);
+
+            small_neighbors = p8est_quadrant_exists(p8est, ghost, which_tree, &nq[0], NULL, NULL, NULL);
+            same_neighbor = p8est_quadrant_exists(p8est, ghost, which_tree, &nq[P8EST_HALF], NULL, NULL, NULL);
+            big_neighbor = p8est_quadrant_exists(p8est, ghost, which_tree, &nq[P8EST_HALF + 1], NULL, NULL, NULL);
+
+            // check boundary
+            if (!small_neighbors && !same_neighbor && !big_neighbor) {
+                //p8est_quadrant_print(SC_LP_PRODUCTION, q);
                 if (data->boundary == -1)
                     data->boundary = ipow(2, nface);
                 else
@@ -136,6 +133,29 @@ void mesh_neighbors_iter(p8est_t *p8est,
             flow(data, nx, ny, nz);
         }
     }
+}
+
+void face_iter(p8est_iter_face_info_t * info, void *user_data) {
+    p8est_quadrant_t            *quad = NULL;
+    p8est_iter_face_side_t      *side = NULL;
+    int                         mpirank = info->p4est->mpirank;
+    context_t                   *ctx = (context_t *) info->p4est->user_pointer;
+
+    for (size_t i = 0; i < info->sides.elem_count; ++i) {
+        side = p8est_iter_fside_array_index (&info->sides, i);
+
+        if (!side->is_hanging) {
+            quad = side->is.full.quad;
+            quadrant_pprint (quad, side->is.full.is_ghost, mpirank);
+        }
+        else {
+            for (int j = 0; j < P8EST_HALF; ++j) {
+                quad = side->is.hanging.quad[j];
+                quadrant_pprint (quad, side->is.hanging.is_ghost[j], mpirank);
+            }
+        }
+    }
+
 }
 
 void mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh) {
@@ -201,6 +221,7 @@ void solve(p8est_t *p8est,
 
     SC_PRODUCTION("Neighbors iter started\n");
     mesh_neighbors_iter(p8est, ghost, mesh, ghost_data);
+    //p8est_iterate(p8est, ghost, ghost_data, NULL, face_iter, NULL, NULL);
     SC_PRODUCTION("Neighbors iter ended\n");
 
     /* exchange ghost data */
