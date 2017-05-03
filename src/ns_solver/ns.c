@@ -1,4 +1,5 @@
 
+#include <p8est_mesh.h>
 #include "ns.h"
 #include "util.h"
 #include "data.h"
@@ -113,12 +114,12 @@ void mesh_neighbors_iter(p8est_t *p8est,
                     nz = 1;
                     break;
                 default:
-                    SC_ABORT_NOT_REACHED ();
+                    nx = ny = nz = 0;
                     break;
             }
 
             // detect boundary
-            if (is_quadrant_on_face_boundary(p8est, which_tree, nface, q)) {
+            if (0 <= nface && nface < P8EST_FACES && is_quadrant_on_face_boundary(p8est, which_tree, nface, q)) {
                 if (data->boundary == -1)
                     data->boundary = ipow(2, nface);
                 else
@@ -345,13 +346,13 @@ int main (int argc, char **argv) {
     p8est = p8est_new_ext (mpicomm, /* communicator */
                            conn,    /* connectivity */
                            0,       /* minimum quadrants per MPI process */
-                           3,       /* minimum level of refinement */
+                           2,       /* minimum level of refinement */
                            1,       /* fill uniform */
                            sizeof (data_t),         /* data size */
                            init,  /* initializes data */
                            (void *) (&ctx));              /* context */
 
-    //p8est_refine(p8est, 1, refine_fn, init);
+    p8est_refine(p8est, 1, refine_fn, init);
     //p8est_coarsen(p8est, 1, coarsen_fn, init);
 
     p8est_balance(p8est, P4EST_CONNECT_FULL, init);
