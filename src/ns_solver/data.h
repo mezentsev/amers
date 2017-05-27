@@ -40,12 +40,12 @@ typedef struct data {
  * Context data associated with a forest is accessible by user_pointer
  */
 typedef struct context {
-    double center[P4EST_DIM];  // coordinates of the center
-    double width;
-    double level;
+    double  center[P4EST_DIM];  // coordinates of the center
+    double  width;
+    int     level;
 
-    double dt;
-    double Adiabatic;
+    double  dt;
+    double  Adiabatic;
 } context_t;
 
 #endif //AMR_DATA_H

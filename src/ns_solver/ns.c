@@ -2,7 +2,6 @@
 #include <p8est_mesh.h>
 #include "ns.h"
 #include "util.h"
-#include "data.h"
 
 void init(p8est_t *p8est,
           p4est_topidx_t which_tree,
@@ -185,8 +184,8 @@ void mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh) {
     }
 }
 
-void solve(p8est_t *p8est,
-           int step) {
+void solver_step(p8est_t *p8est,
+                 int step) {
     SC_PRODUCTIONF("Start solve step %d\n", step);
 
     int                 mpiret;
@@ -196,7 +195,7 @@ void solve(p8est_t *p8est,
     p8est_mesh_t        *mesh;
 
     /* create the ghost quadrants */
-    ghost = p8est_ghost_new (p8est, P8EST_CONNECT_FACE);
+    ghost = p8est_ghost_new (p8est, P8EST_CONNECT_FULL);
     ghost_data = P4EST_ALLOC (data_t, ghost->ghosts.elem_count);
     p8est_ghost_exchange_data (p8est, ghost, ghost_data);
 
@@ -221,7 +220,7 @@ void solve(p8est_t *p8est,
 
     SC_PRODUCTION("Neighbors iter started\n");
     mesh_neighbors_iter(p8est, ghost, mesh, ghost_data);
-    //p8est_iterate(p8est, ghost, ghost_data, NULL, face_iter, NULL, NULL);
+    p8est_iterate(p8est, ghost, ghost_data, NULL, face_iter, NULL, NULL);
     SC_PRODUCTION("Neighbors iter ended\n");
 
     /* exchange ghost data */
@@ -235,9 +234,40 @@ void solve(p8est_t *p8est,
     /* clear */
     p8est_mesh_destroy(mesh);
     P4EST_FREE (ghost_data);
-    p4est_ghost_destroy (ghost);
+    p8est_ghost_destroy(ghost);
 
     SC_PRODUCTIONF("End solve step %d\n", step);
+}
+
+void solve(p8est_t *p8est) {
+    int                     i;
+    clock_t                 start;
+    FILE                    *file;
+    char                    filename[BUFSIZ] = { '\0' };
+    context_t               *ctx = (context_t *) p8est->user_pointer;
+
+    for (i = 0; i < ctx->level; ++i)
+    {
+        start = clock();
+        solver_step(p8est, i);
+
+        // solve time for i-step
+        if(p8est->mpirank == 0)
+        {
+            snprintf (filename, 17, "solution_%02d.time", i);
+            file = fopen(filename, "w");
+            SC_CHECK_ABORT(file, "Can't write to file");
+            fprintf(file, "Solution took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
+            fclose(file);
+        }
+
+        if (i == ctx->level - 1)
+            break;
+
+        // TODO don't refine all quads in each step
+        p8est_refine(p8est, 0, refine_always, init);
+        p8est_partition (p8est, 1, NULL);
+    }
 }
 
 void get_boundary_data(p8est_iter_volume_info_t *info, void *user_data) {
@@ -327,17 +357,11 @@ void write_vtk(p8est_t *p8est, int step) {
 }
 
 int main (int argc, char **argv) {
-    int                     i;
-    char                    filename[BUFSIZ] = { '\0' };
     int                     mpiret;
     sc_MPI_Comm             mpicomm;
     context_t               ctx;
     p8est_t                 *p8est;
     p8est_connectivity_t    *conn;
-    clock_t                 start;
-    FILE                    *file;
-
-    start = clock();
 
     ctx.center[0] = 0.5;
     ctx.center[1] = 0.5;
@@ -367,50 +391,20 @@ int main (int argc, char **argv) {
     p8est = p8est_new_ext (mpicomm, /* communicator */
                            conn,    /* connectivity */
                            0,       /* minimum quadrants per MPI process */
-                           2,       /* minimum level of refinement */
+                           4,       /* minimum level of refinement */
                            1,       /* fill uniform */
                            sizeof (data_t),         /* data size */
                            init,  /* initializes data */
                            (void *) (&ctx));              /* context */
 
-    p8est_refine(p8est, 1, refine_fn, init);
+    // TODO turn on refine
+    //p8est_refine(p8est, 1, refine_fn, init);
     //p8est_coarsen(p8est, 1, coarsen_fn, init);
 
     p8est_balance(p8est, P4EST_CONNECT_FULL, init);
     p8est_partition (p8est, 1, NULL);
 
-    // init time
-    if(p8est->mpirank == 0) {
-        file = fopen("init.time", "w");
-        SC_CHECK_ABORT(file, "Can't write to file");
-        fprintf(file, "Init took %f seconds\n", ((double) clock() - start) / CLOCKS_PER_SEC);
-        fclose(file);
-    }
-
-    p8est_vtk_write_file (p8est, NULL, "init");
-
-    for (i = 0; i < ctx.level; ++i)
-    {
-        start = clock();
-        solve(p8est, i);
-
-        // solve time for i-step
-        if(p8est->mpirank == 0)
-        {
-            snprintf (filename, 17, "solution_%02d.time", i);
-            file = fopen(filename, "w");
-            SC_CHECK_ABORT(file, "Can't write to file");
-            fprintf(file, "Solution took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
-            fclose(file);
-        }
-
-        if (i == ctx.level - 1)
-            break;
-
-        // repartition
-        p8est_refine(p8est, 0, refine_always, init);
-        p8est_partition (p8est, 1, NULL);
-    }
+    solve(p8est);
 
     // clear
     p8est_destroy(p8est);

@@ -35,8 +35,8 @@ void write_solution(p8est_t *p8est,
  * @param p8est
  * @param step
  */
-void solve(p8est_t *p8est,
-           int step);
+void solver_step(p8est_t *p8est,
+                 int step);
 
 /**
  * Iterate throw each cell in mesh
