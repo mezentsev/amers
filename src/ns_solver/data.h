@@ -43,7 +43,7 @@ typedef struct data {
 typedef struct context {
     double  center[P4EST_DIM];    /* центр сетки */
     int     level;                /* уровень адаптации TODO */
-    int     width;
+    double  width;
 
     double  dt;                   /* временной шаг */
     double  Adiabatic;            /* показатель адиабаты */
