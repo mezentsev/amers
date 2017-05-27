@@ -42,11 +42,21 @@ void solver_step(p8est_t *p8est,
 /**
  * Обход всех ячеек для вычисления временного шага
  *
- * @param p8est_iter_volume_info_t
+ * @param p8est_iter_volume_info_t данные ячейки
  * @param user_data
  */
 void calc_cfl_timestep(p8est_iter_volume_info_t *info,
                        void *user_data);
+
+
+/**
+ * Обход по всем ячейкам и по их соседям для вычисления значения потока
+ *
+ * @param p8est_iter_volume_info_t данные ячейки
+ * @param user_data гостовые данные
+ */
+void calc_flow(p8est_iter_volume_info_t *info,
+               void *user_data);
 
 /**
  * Обход по всем соседям

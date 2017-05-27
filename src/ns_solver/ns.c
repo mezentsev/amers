@@ -45,7 +45,7 @@ int refine_always (p8est_t *p8est,
     return 0;
 }*/
 
-void mesh_neighbors_iter(p8est_t *p8est,
+/*void mesh_neighbors_iter(p8est_t *p8est,
                          p8est_ghost_t *ghost,
                          p8est_mesh_t *mesh,
                          void *ghost_data) {
@@ -130,9 +130,9 @@ void mesh_neighbors_iter(p8est_t *p8est,
             flow(data, nx, ny, nz);
         }
     }
-}
+}*/
 
-void face_iter(p8est_iter_face_info_t * info, void *user_data) {
+/*void face_iter(p8est_iter_face_info_t * info, void *user_data) {
     p8est_quadrant_t            *quad = NULL;
     p8est_iter_face_side_t      *side = NULL;
     int                         mpirank = info->p4est->mpirank;
@@ -152,6 +152,11 @@ void face_iter(p8est_iter_face_info_t * info, void *user_data) {
             }
         }
     }
+
+}*/
+
+void calc_flow(p8est_iter_volume_info_t *info,
+               void *user_data) {
 
 }
 
@@ -188,10 +193,9 @@ void solver_step(p8est_t *p8est,
     /* выделение гостового слоя */
     ghost = p8est_ghost_new (p8est, P8EST_CONNECT_FULL);
     ghost_data = P4EST_ALLOC (data_t, ghost->ghosts.elem_count);
-    //p8est_ghost_exchange_data (p8est, ghost, ghost_data);
 
-    //mesh = p8est_mesh_new(p8est, ghost, P8EST_CONNECT_FACE);
-    //SC_PRODUCTIONF("Used memory: %ld\n", p8est_mesh_memory_used(mesh));
+    /* обмен гостовыми данными */
+    p8est_ghost_exchange_data (p8est, ghost, ghost_data);
 
     /* calc cfl */
     SC_PRODUCTION("Cell iter started\n");
@@ -212,14 +216,17 @@ void solver_step(p8est_t *p8est,
     SC_PRODUCTION("Exchange ended\n");
 
     SC_PRODUCTION("Neighbors iter started\n");
+    p8est_iterate(p8est, ghost, (void *) ghost_data,        /* вкладываем гостовый слой */
+                  calc_flow,                                /* вычисление потока, проходя по всем ячейкам и их соседям */
+                  NULL, NULL, NULL); // TODO может прозодить по фейсам, а не по самим ячейкам?
     //mesh_neighbors_iter(p8est, ghost, mesh, ghost_data);
     //p8est_iterate(p8est, ghost, ghost_data, NULL, face_iter, NULL, NULL);
     SC_PRODUCTION("Neighbors iter ended\n");
 
     /* exchange ghost data */
-    SC_PRODUCTION("Exchange started\n");
-    p8est_ghost_exchange_data (p8est, ghost, ghost_data);
-    SC_PRODUCTION("Exchange ended\n");
+    //SC_PRODUCTION("Exchange started\n");
+    //p8est_ghost_exchange_data (p8est, ghost, ghost_data);
+    //SC_PRODUCTION("Exchange ended\n");
 
     /* generate vtk and print solution */
     write_vtk(p8est, step);
