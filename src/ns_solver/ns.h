@@ -23,7 +23,7 @@
 #include "solver.h"
 
 /**
- * Write solution in step to VTK
+ * Созранить решение в VTK
  * @param p8est
  * @param step
  */
@@ -31,7 +31,8 @@ void write_solution(p8est_t *p8est,
                     int step);
 
 /**
- * Run Solver
+ * Решить шаг N
+ *
  * @param p8est
  * @param step
  */
@@ -39,16 +40,17 @@ void solver_step(p8est_t *p8est,
                  int step);
 
 /**
- * Iterate throw each cell in mesh
- * @param p8est
- * @param mesh
+ * Обход всех ячеек для вычисления временного шага
+ *
+ * @param p8est_iter_volume_info_t
+ * @param user_data
  */
-void mesh_iter(p8est_t *p8est,
-               p8est_mesh_t *mesh);
+void calc_cfl_timestep(p8est_iter_volume_info_t *info,
+                       void *user_data);
 
 /**
- * Iterate throw each neighbor's cell
- * with their ghost data
+ * Обход по всем соседям
+ *
  * @param p8est
  * @param ghost
  * @param mesh
@@ -60,7 +62,8 @@ void mesh_neighbors_iter(p8est_t *p8est,
                          void *ghost_data);
 
 /**
- * Refine all cells
+ * Функция безусловного деления ячейки
+ *
  * @param p8est
  * @param which_tree
  * @param q
@@ -69,7 +72,8 @@ void mesh_neighbors_iter(p8est_t *p8est,
 int refine_always (p8est_t *p8est, p4est_topidx_t which_tree, p8est_quadrant_t *q);
 
 /**
- * Refine conditional function
+ * Деление ячейки с приведением к геометрии
+ *
  * @param p8est
  * @param which_tree
  * @param q
@@ -77,6 +81,12 @@ int refine_always (p8est_t *p8est, p4est_topidx_t which_tree, p8est_quadrant_t *
  */
 int refine_fn (p8est_t *p8est, p4est_topidx_t which_tree, p8est_quadrant_t *q);
 
+/**
+ * Запись решения в VTK
+ *
+ * @param p8est
+ * @param step
+ */
 void write_vtk(p8est_t *p8est, int step);
 
 #endif //AMR_NS_H

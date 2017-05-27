@@ -23,7 +23,7 @@ int refine_always (p8est_t *p8est,
     return 1;
 }
 
-int refine_fn (p8est_t *p8est,
+/*int refine_fn (p8est_t *p8est,
                p4est_topidx_t which_tree,
                p8est_quadrant_t *q) {
     context_t *ctx = (context_t *) p8est->user_pointer;
@@ -43,7 +43,7 @@ int refine_fn (p8est_t *p8est,
         return 1;
 
     return 0;
-}
+}*/
 
 void mesh_neighbors_iter(p8est_t *p8est,
                          p8est_ghost_t *ghost,
@@ -58,11 +58,9 @@ void mesh_neighbors_iter(p8est_t *p8est,
     p8est_quadrant_t    *q;                             // current quad
     p8est_quadrant_t    nq[P8EST_FACES];                // neighbor quads
 
-    data_t              *g_data;                        // ghost data
     data_t              *data;
 
     int                 nface;
-    double              h;
     double              nx, ny, nz;
 
     int                 small_neighbors;
@@ -126,7 +124,7 @@ void mesh_neighbors_iter(p8est_t *p8est,
                 data->bz = nz;
             }
 
-            h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
+            //h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
 
             // TODO Calculate flow
             flow(data, nx, ny, nz);
@@ -157,31 +155,25 @@ void face_iter(p8est_iter_face_info_t * info, void *user_data) {
 
 }
 
-void mesh_iter(p8est_t *p8est, p8est_mesh_t *mesh) {
-    p4est_topidx_t      which_tree = -1;
-    context_t           *ctx       = (context_t *) p8est->user_pointer;
+void calc_cfl_timestep(p8est_iter_volume_info_t *info,
+                       void *user_data) { // user_data (в т.ч. госты не используется при вычислении временного шага)
+    p8est_t             *p8est     = info->p4est;
+    context_t           *ctx       = (context_t *) p8est->user_pointer;  /* весь контекст на этом процессоре */
+    p8est_quadrant_t    *q         = info->quad;                         /* текущая ячейка */
 
-    p8est_mesh_face_neighbor_t mfn;
-    p4est_locidx_t      qumid, quadrant_id;
-    p8est_quadrant_t    *q;                             /* current quad */
     data_t              *data;
 
     double              h;
     double              p[3];
 
-    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid) {
-        q = p8est_mesh_quadrant_cumulative (p8est, qumid,
-                                            &which_tree, &quadrant_id);
+    /* Длина стороны */
+    h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
+    get_midpoint(p8est, info->treeid, q, p);
 
-        /* side length */
-        h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
-        get_midpoint(p8est, which_tree, q, p);
+    data = (data_t *) q->p.user_data;
 
-        data = (data_t *) q->p.user_data;
-
-        // calculate CFL
-        cflq(data, ctx, h);
-    }
+    /* Вычисление курантового шага */
+    cflq(data, ctx, h);
 }
 
 void solver_step(p8est_t *p8est,
@@ -192,24 +184,25 @@ void solver_step(p8est_t *p8est,
     data_t              *ghost_data;
     context_t           *ctx = (context_t *) p8est->user_pointer;
     p8est_ghost_t       *ghost;
-    p8est_mesh_t        *mesh;
 
-    /* create the ghost quadrants */
+    /* выделение гостового слоя */
     ghost = p8est_ghost_new (p8est, P8EST_CONNECT_FULL);
     ghost_data = P4EST_ALLOC (data_t, ghost->ghosts.elem_count);
-    p8est_ghost_exchange_data (p8est, ghost, ghost_data);
+    //p8est_ghost_exchange_data (p8est, ghost, ghost_data);
 
-    mesh = p8est_mesh_new(p8est, ghost, P8EST_CONNECT_FACE);
-    SC_PRODUCTIONF("Used memory: %ld\n", p8est_mesh_memory_used(mesh));
+    //mesh = p8est_mesh_new(p8est, ghost, P8EST_CONNECT_FACE);
+    //SC_PRODUCTIONF("Used memory: %ld\n", p8est_mesh_memory_used(mesh));
 
-    /* calc f2 and partials */
+    /* calc cfl */
     SC_PRODUCTION("Cell iter started\n");
-    mesh_iter(p8est, mesh);
+    p8est_iterate(p8est, NULL, NULL,        /* слой гостовых ячеек не нужен, доп. параметры тоже */
+                  calc_cfl_timestep,        /* вычисление временного шага, проходя по всем ячейкам */
+                  NULL, NULL, NULL);
     SC_PRODUCTION("Cell iter ended\n");
 
     /* calc min dt */
     SC_PRODUCTIONF("dt old: %.20lf\n", ctx->dt);
-    mpiret = MPI_Allreduce(MPI_IN_PLACE, &ctx->dt, 1, MPI_DOUBLE, MPI_MIN, p8est->mpicomm);
+    mpiret = sc_MPI_Allreduce(MPI_IN_PLACE, &ctx->dt, 1, MPI_DOUBLE, MPI_MIN, p8est->mpicomm);
     SC_CHECK_MPI(mpiret);
     SC_PRODUCTIONF("dt new: %.20lf\n", ctx->dt);
 
@@ -219,8 +212,8 @@ void solver_step(p8est_t *p8est,
     SC_PRODUCTION("Exchange ended\n");
 
     SC_PRODUCTION("Neighbors iter started\n");
-    mesh_neighbors_iter(p8est, ghost, mesh, ghost_data);
-    p8est_iterate(p8est, ghost, ghost_data, NULL, face_iter, NULL, NULL);
+    //mesh_neighbors_iter(p8est, ghost, mesh, ghost_data);
+    //p8est_iterate(p8est, ghost, ghost_data, NULL, face_iter, NULL, NULL);
     SC_PRODUCTION("Neighbors iter ended\n");
 
     /* exchange ghost data */
@@ -231,8 +224,7 @@ void solver_step(p8est_t *p8est,
     /* generate vtk and print solution */
     write_vtk(p8est, step);
 
-    /* clear */
-    p8est_mesh_destroy(mesh);
+    /* очистка всех выделенных данных */
     P4EST_FREE (ghost_data);
     p8est_ghost_destroy(ghost);
 
@@ -251,7 +243,7 @@ void solve(p8est_t *p8est) {
         start = clock();
         solver_step(p8est, i);
 
-        // solve time for i-step
+        /* вывод в файл времени вычисление N-ого решения */
         if(p8est->mpirank == 0)
         {
             snprintf (filename, 17, "solution_%02d.time", i);
@@ -264,7 +256,7 @@ void solve(p8est_t *p8est) {
         if (i == ctx->level - 1)
             break;
 
-        // TODO don't refine all quads in each step
+        // TODO не нужно делить каждый шаг. Потом нужно научить делить только там где нужно
         p8est_refine(p8est, 0, refine_always, init);
         p8est_partition (p8est, 1, NULL);
     }
@@ -397,7 +389,7 @@ int main (int argc, char **argv) {
                            init,  /* initializes data */
                            (void *) (&ctx));              /* context */
 
-    // TODO turn on refine
+    // TODO сначала проверяем работу алгоритма на регулярной сетке, потом включаем адаптацию
     //p8est_refine(p8est, 1, refine_fn, init);
     //p8est_coarsen(p8est, 1, coarsen_fn, init);
 
@@ -406,15 +398,13 @@ int main (int argc, char **argv) {
 
     solve(p8est);
 
-    // clear
+    /* очистка всех данных и проверка */
     p8est_destroy(p8est);
     p8est_connectivity_destroy(conn);
 
-    /* Verify that allocations internal to p4est and sc do not leak memory.
-     * This should be called if sc_init () has been called earlier. */
+    /* проверка на закрытие всех дескрипторов */
     sc_finalize ();
 
-    /* This is standard MPI programs.  Without --enable-mpi, this is a dummy. */
     mpiret = sc_MPI_Finalize ();
     SC_CHECK_MPI (mpiret);
 

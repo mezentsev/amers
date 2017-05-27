@@ -38,6 +38,13 @@ void init_solver(data_t *data, context_t *ctx) {
     setq(data);
 }
 
+/**
+ * Условие устойчивости (CFL - Куранта-Фридриха-Леви)
+ *
+ * @param data данные ячейки
+ * @param ctx контекст. в dt записывается курантовый шаг
+ * @param length сторона ячейки
+ */
 void cflq(data_t *data, context_t *ctx, double length) {
     P4EST_ASSERT(length > 0);
     P4EST_ASSERT(data->Pressure > 0);

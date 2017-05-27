@@ -4,22 +4,25 @@
 #include "data.h"
 
 /**
- * Initialize solver
- * @param q
- * @param ctx
+ * Инициализация солвера
+ *
+ * @param q параметр
+ * @param ctx контекст приложения
  */
 void init_solver(data_t *q, context_t *ctx);
 
 /**
- * Calculate CFL for quadrant with length h
+ * Вычисление временного шага (CFL) для ячейки со стороной h
+ *
  * @param data
- * @param ctx
- * @param h
+ * @param ctx контекст приложения
+ * @param h сторона ячейки
  */
 void cflq(data_t *data, context_t *ctx, double h);
 
 /**
- * Calculate flow
+ * Вычисление потока
+ *
  * @param data
  * @param nx
  * @param ny
@@ -29,17 +32,19 @@ void cflq(data_t *data, context_t *ctx, double h);
 double flow(data_t *data, double nx, double ny, double nz);
 
 /**
- * Transform Z to Q
+ * Преобразование из Z в Q
+ *
  * @param data
  */
 void setq(data_t *data);
 
 
 /**
- * Calculation speed sound
- * @param density
- * @param pressure
- * @param adiabatic
+ * Вычисление скорости света
+ *
+ * @param density значение плотности
+ * @param pressure значение давления
+ * @param adiabatic параметр адиабаты
  * @return
  */
 double calc_speed_sound(double density, double pressure, double adiabatic);
