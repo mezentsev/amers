@@ -6,18 +6,29 @@
 #define AMR_NS_H
 
 #include <p4est_to_p8est.h>
-#include <p8est_connectivity.h>
 #include <p8est.h>
+#include <p8est_connectivity.h>
 #include <p8est_extended.h>
 #include <p8est_vtk.h>
 #include <p8est_iterate.h>
-#include <time.h>
-#include <p8est_iterate.h>
-#include <p8est.h>
 #include <p8est_bits.h>
 #include <p8est_mesh.h>
 #include <p8est_search.h>
 #include <p8est_ghost.h>
+#include <p8est_mesh.h>
+#include <p8est_bits.h>
+#include <p8est_algorithms.h>
+#include <p8est_balance.h>
+#include <p8est_communication.h>
+#include <p8est_geometry.h>
+#include <p8est_io.h>
+#include <p8est_lnodes.h>
+#include <p8est_wrap.h>
+#include <p8est_points.h>
+#include <p8est_nodes.h>
+
+#include <time.h>
+
 
 #include "data.h"
 #include "solver.h"
@@ -29,47 +40,6 @@
  */
 void write_solution(p8est_t *p8est,
                     int step);
-
-/**
- * Решить шаг N
- *
- * @param p8est
- * @param step
- */
-void solver_step(p8est_t *p8est,
-                 int step);
-
-/**
- * Обход всех ячеек для вычисления временного шага
- *
- * @param p8est_iter_volume_info_t данные ячейки
- * @param user_data
- */
-void calc_cfl_timestep(p8est_iter_volume_info_t *info,
-                       void *user_data);
-
-
-/**
- * Обход по всем ячейкам и по их соседям для вычисления значения потока
- *
- * @param p8est_iter_volume_info_t данные ячейки
- * @param user_data гостовые данные
- */
-void calc_flow(p8est_iter_volume_info_t *info,
-               void *user_data);
-
-/**
- * Обход по всем соседям
- *
- * @param p8est
- * @param ghost
- * @param mesh
- * @param ghost_data
- */
-void mesh_neighbors_iter(p8est_t *p8est,
-                         p8est_ghost_t *ghost,
-                         p8est_mesh_t *mesh,
-                         void *ghost_data);
 
 /**
  * Функция безусловного деления ячейки

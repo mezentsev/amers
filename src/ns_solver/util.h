@@ -27,11 +27,10 @@ int is_quadrant_on_face_boundary (p8est_t * p4est,
                                   const p8est_quadrant_t * q);
 
 /**
- * Output information about quadrant
+ * Вывод информации о ячейке
  * @param q
  * @param is_ghost
- * @param rank
  */
-void quadrant_pprint (p8est_quadrant_t * q, int is_ghost, int rank);
+void quadrant_pprint (p8est_quadrant_t * q, int is_ghost);
 
 #endif //AMR_UTIL_H

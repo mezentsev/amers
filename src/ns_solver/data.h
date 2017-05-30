@@ -21,20 +21,9 @@ typedef struct data {
         double PE;
     } Q;                    /* значение Q */
 
-    /**
-     * TODO отказаться от сохранения границы
-     * -1 - нет границы
-     */
-    int boundary;
+    int dummy;
 
-    /**
-     * Направление границы
-     */
-    double bx;
-    double by;
-    double bz;
-
-} data_t;
+} element_data_t;
 
 
 /**
@@ -52,13 +41,10 @@ typedef struct context {
      * Прототип функции для получения данных от границ сетки
      *
      * @param quad текущая просматриваемая ячейка
-     * @param face просматриваемая сторона ячейки
-     * @param x координата центра ячейки
-     * @param y координата центра ячейки
-     * @param z координата центра ячейки
+     * @param face номер относительно соседа
      * @return
      */
-    data_t (*get_boundary_data_by_face)(p8est_quadrant_t *quad, int face, double x, double y, double z);
+    element_data_t (*get_boundary_data_by_face)(p8est_quadrant_t *quad, int face);
 } context_t;
 
 #endif //AMR_DATA_H
