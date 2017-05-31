@@ -29,9 +29,15 @@
 
 #include <time.h>
 
-
 #include "data.h"
 #include "solver.h"
+
+#define FROM_RIGHT 0
+#define FROM_LEFT 1
+#define FROM_TOP 2
+#define FROM_BOTTOM 3
+#define FROM_BEHIND 4
+#define FROM_FRONT 5
 
 /**
  * Созранить решение в VTK
@@ -40,33 +46,5 @@
  */
 void write_solution(p8est_t *p8est,
                     int step);
-
-/**
- * Функция безусловного деления ячейки
- *
- * @param p8est
- * @param which_tree
- * @param q
- * @return
- */
-int refine_always (p8est_t *p8est, p4est_topidx_t which_tree, p8est_quadrant_t *q);
-
-/**
- * Деление ячейки с приведением к геометрии
- *
- * @param p8est
- * @param which_tree
- * @param q
- * @return
- */
-int refine_fn (p8est_t *p8est, p4est_topidx_t which_tree, p8est_quadrant_t *q);
-
-/**
- * Запись решения в VTK
- *
- * @param p8est
- * @param step
- */
-void write_vtk(p8est_t *p8est, int step);
 
 #endif //AMR_NS_H

@@ -38,7 +38,7 @@ void solver_step(p8est_t *p8est,
  * @param face номер относительно границы
  * @return заполненные данные
  */
-element_data_t get_boundary_data_by_face(p8est_quadrant_t *quad, int face);
+element_data_t get_boundary_data_by_face(p8est_t *p8est, p8est_quadrant_t *quad, int face);
 
 /**
  * Обход всех ячеек для вычисления временного шага
@@ -48,26 +48,6 @@ element_data_t get_boundary_data_by_face(p8est_quadrant_t *quad, int face);
  */
 void calc_cfl_timestep_iter(p8est_iter_volume_info_t *info,
                             void *user_data);
-
-
-/**
- * Обход по всем сторонам каждой ячеки для вычисления значения потока
- *
- * @param p8est_iter_face_info_t данные стороны
- * @param user_data гостовые данные
- */
-void calc_flow_face_iter(p8est_iter_face_info_t *info,
-                         void *user_data);
-
-
-/**
- * Обход по всем сторонам каждой ячеки для вычисления значения потока
- *
- * @param p8est_iter_volume_info_t данные ячейки
- * @param user_data гостовые данные
- */
-void calc_flow_volume_iter(p8est_iter_volume_info_t *info,
-                           void *user_data);
 
 /**
  * Обход по сетке для вычисления потока
@@ -79,33 +59,18 @@ void calc_flow_mesh_iter(p8est_t *p8est,
                          p8est_ghost_t *ghost,
                          void *ghost_data);
 /**
- * Обход по всем соседям
- *
- * @param p8est
- * @param ghost
- * @param mesh
- * @param ghost_data
- */
-void mesh_neighbors_iter(p8est_t *p8est,
-                         p8est_ghost_t *ghost,
-                         p8est_mesh_t *mesh,
-                         void *ghost_data);
-
-/**
  * Инициализация солвера
  *
  * @param q параметр
- * @param ctx контекст приложения
  */
-void init_solver(element_data_t *q, context_t *ctx);
+void init_solver(p8est_t *p8est, element_data_t *q);
 
 /**
  * Инициализация солвера пустыми векторами
  *
  * @param q параметр
- * @param ctx контекст приложения
  */
-void init_empty_solver(element_data_t *data);
+void init_empty_solver(p8est_t *p8est, element_data_t *data);
 
 /**
  * Вычисление временного шага (CFL) для ячейки со стороной h
@@ -119,21 +84,18 @@ void cflq(element_data_t *data, context_t *ctx, double h);
 /**
  * Вычисление потока
  *
- * @param data
- * @param nx
- * @param ny
- * @param nz
- * @return
+ * @param cur_quad
+ * @param n_quad
  */
-double flow(element_data_t *data, double nx, double ny, double nz);
+void calc_flow(p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad);
 
 /**
  * Преобразование из Z в Q
  *
+ * @param p8est
  * @param data
  */
-void setq(element_data_t *data);
-
+void updateQ(p8est_t *p8est, element_data_t *data);
 
 /**
  * Вычисление скорости света

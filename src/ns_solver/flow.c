@@ -9,6 +9,7 @@ void calc_flow_mesh_iter(p8est_t *p8est,
     int                         which_tree = -1;
     int                         quadrant_id;
     p8est_quadrant_t            *q;
+    element_data_t              *data;
     context_t                   *ctx       = (context_t *) p8est->user_pointer;
 
     element_data_t              *ndata;
@@ -31,6 +32,9 @@ void calc_flow_mesh_iter(p8est_t *p8est,
                                            qumid,
                                            &which_tree,
                                            &quadrant_id);
+        // даные текущей ячейки
+        data = (element_data_t *) q->p.user_data;
+
         // инииализация итератора по соседям
         p8est_mesh_face_neighbor_init2(&mfn, p8est, ghost, mesh, which_tree, quadrant_id);
 
@@ -46,18 +50,31 @@ void calc_flow_mesh_iter(p8est_t *p8est,
             // если ячейки совпадают - попали на границу
             is_boundary = p8est_quadrant_is_equal(qn, q);
 
-            // извлечение данных из теневого слоя
+            // извлечение данных из соседа
             ndata = (element_data_t *) p8est_mesh_face_neighbor_data(&mfn, ghost_data);
 
+            // Граничные значения забираем в соответствии с функцией контекста
             if (is_boundary) {
                 SC_PRODUCTIONF("[BOUNDARY] Data: %lf, nface: %d, nrank: %d, cur rank: %d\n",
-                               ndata->Density, nface, nrank, p8est->mpirank);
+                               ndata->dummy, nface, nrank, p8est->mpirank);
 
-                boundary_data = get_boundary_data_by_face(qn, nface);
-                SC_PRODUCTIONF("New data from boundary: %lf\n", boundary_data.Pressure);
+                boundary_data = get_boundary_data_by_face(p8est, qn, nface);
+                SC_PRODUCTIONF("New data from boundary: %lf\n", boundary_data.dummy);
+
+                // TODO test
+                ndata->dummy += boundary_data.dummy;
+
+                // TODO может вынести расчёт в другое место?
+
             } else {
                 SC_PRODUCTIONF("Data: %lf, nface: %d, nrank: %d, cur rank: %d\n",
-                               ndata->Density, nface, nrank, p8est->mpirank);
+                               ndata->dummy, nface, nrank, p8est->mpirank);
+                // TODO calc_flow(q, qn);
+
+                // сверху вниз
+                if (nface == FROM_TOP) {
+                    data->dummy += ndata->dummy;
+                }
             }
         }
 
@@ -219,93 +236,3 @@ void calc_flow_volume_iter(p8est_iter_volume_info_t *info,
 
     SC_PRODUCTION("*****************\n");
 }
-
-
-
-/*void mesh_neighbors_iter(p8est_t *p8est,
-                         p8est_ghost_t *ghost,
-                         p8est_mesh_t *mesh,
-                         void *ghost_data) {
-    p4est_topidx_t      which_tree = -1;
-    context_t           *ctx       = (context_t *) p8est->user_pointer;
-
-    p8est_mesh_face_neighbor_t mfn;
-    p4est_locidx_t      qumid, quadrant_id;
-
-    p8est_quadrant_t    *q;                             // current quad
-    p8est_quadrant_t    nq[P8EST_FACES];                // neighbor quads
-
-    element_data_t              *data;
-
-    int                 nface;
-    double              nx, ny, nz;
-
-    int                 small_neighbors;
-    int                 same_neighbor;
-    int                 big_neighbor;
-
-    // iterate for all quadrants
-    for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid) {
-        q = p8est_mesh_quadrant_cumulative (p8est,
-                                            qumid,
-                                            &which_tree,
-                                            &quadrant_id);
-        data = (element_data_t *) q->p.user_data;
-
-        // loop for all faces
-        for (nface = 0; nface < P8EST_FACES; ++nface){
-            // neighbor orientation
-            nx = 0;
-            ny = 0;
-            nz = 0;
-
-            switch (nface) {
-                case 0:                      // -x side
-                    nx = -1;
-                    break;
-                case 1:                      // +x side
-                    nx = 1;
-                    break;
-                case 2:                      // -y side
-                    ny = -1;
-                    break;
-                case 3:                      // +y side
-                    ny = 1;
-                    break;
-                case 4:                      // -z side
-                    nz = -1;
-                    break;
-                case 5:                      // +z side
-                    nz = 1;
-                    break;
-                default:
-                    break;
-            }
-
-            p8est_quadrant_all_face_neighbors(q, nface, nq);
-
-            small_neighbors = p8est_quadrant_exists(p8est, ghost, which_tree, &nq[0], NULL, NULL, NULL);
-            same_neighbor = p8est_quadrant_exists(p8est, ghost, which_tree, &nq[P8EST_HALF], NULL, NULL, NULL);
-            big_neighbor = p8est_quadrant_exists(p8est, ghost, which_tree, &nq[P8EST_HALF + 1], NULL, NULL, NULL);
-
-            // check boundary
-            if (!small_neighbors && !same_neighbor && !big_neighbor) {
-                //p8est_quadrant_print(SC_LP_PRODUCTION, q);
-                if (data->boundary == -1)
-                    data->boundary = ipow(2, nface);
-                else
-                    data->boundary |= ipow(2, nface);
-
-                data->bx = nx;
-                data->by = ny;
-                data->bz = nz;
-            }
-
-            //h = (double) P8EST_QUADRANT_LEN (q->level) / (double) P8EST_ROOT_LEN;
-
-            // TODO Calculate flow
-            flow(data, nx, ny, nz);
-        }
-    }
-}*/
-

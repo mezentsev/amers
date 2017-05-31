@@ -21,7 +21,7 @@ typedef struct data {
         double PE;
     } Q;                    /* значение Q */
 
-    int dummy;
+    double dummy;
 
 } element_data_t;
 
@@ -31,7 +31,7 @@ typedef struct data {
  */
 typedef struct context {
     double  center[P4EST_DIM];    /* центр сетки */
-    int     level;                /* уровень адаптации TODO */
+    int     steps;                /* количество шагов */
     double  width;
 
     double  dt;                   /* временной шаг */
@@ -40,11 +40,12 @@ typedef struct context {
     /**
      * Прототип функции для получения данных от границ сетки
      *
-     * @param quad текущая просматриваемая ячейка
+     * @param p8est сетка
+     * @param q текущая просматриваемая ячейка
      * @param face номер относительно соседа
      * @return
      */
-    element_data_t (*get_boundary_data_by_face)(p8est_quadrant_t *quad, int face);
+    element_data_t (*get_boundary_data_by_face)(p8est_t *p8est, p8est_quadrant_t *q, int face);
 } context_t;
 
 #endif //AMR_DATA_H

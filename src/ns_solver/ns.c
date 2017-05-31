@@ -1,4 +1,3 @@
-
 #include "ns.h"
 
 void init(p8est_t *p8est,
@@ -7,9 +6,7 @@ void init(p8est_t *p8est,
     context_t       *ctx = (context_t *) p8est->user_pointer;
     element_data_t  *data = (element_data_t *) quad->p.user_data;
 
-    init_solver(data, ctx);
-
-    data->dummy = -1;
+    init_solver(p8est, data);
 }
 
 int refine_always (p8est_t *p8est,
@@ -18,10 +15,12 @@ int refine_always (p8est_t *p8est,
     return 1;
 }
 
-/*int refine_fn (p8est_t *p8est,
+int refine_fn (p8est_t *p8est,
                p4est_topidx_t which_tree,
                p8est_quadrant_t *q) {
-    context_t *ctx = (context_t *) p8est->user_pointer;
+    return 0;
+
+    /*context_t *ctx = (context_t *) p8est->user_pointer;
     double midpoint[3];
     double h = (double) P4EST_QUADRANT_LEN (q->level) / (double) P4EST_ROOT_LEN;
     double l;
@@ -37,8 +36,8 @@ int refine_always (p8est_t *p8est,
         h > 0.02)
         return 1;
 
-    return 0;
-}*/
+    return 0;*/
+}
 
 void solve(p8est_t *p8est) {
     int                     i;
@@ -47,7 +46,7 @@ void solve(p8est_t *p8est) {
     char                    filename[BUFSIZ] = { '\0' };
     context_t               *ctx = (context_t *) p8est->user_pointer;
 
-    for (i = 0; i < ctx->level; ++i)
+    for (i = 0; i < ctx->steps; ++i)
     {
         start = clock();
         solver_step(p8est, i);
@@ -62,17 +61,18 @@ void solve(p8est_t *p8est) {
             fclose(file);
         }
 
-        if (i == ctx->level - 1)
+        if (i == ctx->steps - 1)
             break;
 
         // TODO не нужно делить каждый шаг. Потом нужно научить делить только там где нужно
-        p8est_refine(p8est, 0, refine_always, init);
+        p8est_refine(p8est, 1, refine_fn, init);
         p8est_partition (p8est, 1, NULL);
     }
 }
 
-void get_boundary_data(p8est_iter_volume_info_t *info,
-                       void *user_data) {
+// TODO избавиться
+void get_quad_data(p8est_iter_volume_info_t *info,
+                   void *user_data) {
     sc_array_t          *u_interp = (sc_array_t *) user_data;
     /* we passed the array of values to fill as the
      * user_data in the call to p4est_iterate */
@@ -100,25 +100,26 @@ void get_boundary_data(p8est_iter_volume_info_t *info,
     }
 }
 
-void write_vtk(p8est_t *p8est, int step) {
+void write_solution(p8est_t *p8est,
+                    int step) {
     char                filename[BUFSIZ] = { '\0' };
     p4est_locidx_t      numquads;
-    sc_array_t          *boundary_data;
+    sc_array_t          *data;
 
     snprintf (filename, 12, "solution_%02d", step);
     numquads = p8est->local_num_quadrants;
 
     /* create a vector with one value for the corner of every local quadrant
      * (the number of children is always the same as the number of corners) */
-    boundary_data = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    data = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
 
     /* Use the iterator to visit every cell and fill in the solution values.
      * Using the iterator is not absolutely necessary in this case: we could
      * also loop over every tree (there is only one tree in this case) and loop
      * over every quadrant within every tree */
     p8est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
-                  (void *) boundary_data,     /* pass in boundary so that we can fill it */
-                  get_boundary_data,    /* callback function that fill boundary */
+                  (void *) data,     /* pass in boundary so that we can fill it */
+                  get_quad_data,
                   NULL,          /* there is no callback for the faces between quadrants */
                   NULL,          /* there is no callback for the edges between quadrants */
                   NULL);         /* there is no callback for the corners between quadrants */
@@ -146,7 +147,7 @@ void write_vtk(p8est_t *p8est, int step) {
     /* write one scalar field: the solution value */
     context = p8est_vtk_write_point_dataf(context, 1, 0,
                                           "boundary",
-                                          boundary_data,
+                                          data,
                                           context);
     SC_CHECK_ABORT (context != NULL,
                     P8EST_STRING "_vtk: Error writing cell data");
@@ -155,7 +156,7 @@ void write_vtk(p8est_t *p8est, int step) {
     SC_CHECK_ABORT (!retval,
                     P8EST_STRING "_vtk: Error writing footer");
 
-    sc_array_destroy(boundary_data);
+    sc_array_destroy(data);
 }
 
 int main (int argc, char **argv) {
@@ -170,7 +171,7 @@ int main (int argc, char **argv) {
     ctx.center[2] = 0.5;
 
     ctx.width = 0.2;
-    ctx.level = 1;
+    ctx.steps = 20;
     ctx.dt = 0;
     ctx.get_boundary_data_by_face = get_boundary_data_by_face;
 
@@ -207,6 +208,7 @@ int main (int argc, char **argv) {
     p8est_balance(p8est, P4EST_CONNECT_FULL, init);
     p8est_partition (p8est, 1, NULL);
 
+    // SOLVE
     solve(p8est);
 
     /* очистка всех данных и проверка */
