@@ -124,7 +124,7 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
     return boundary_data;
 }
 
-void calc_flow(p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad) {
+void calc_flux(p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad) {
     // TODO implementation
 }
 
@@ -200,11 +200,11 @@ void solver_step(p8est_t *p8est,
 
     SC_PRODUCTION("Neighbors iter started\n");
     //p8est_iterate(p8est, ghost, (void *) ghost_data,        /* вкладываем гостовый слой */
-    //              NULL,//calc_flow_volume_iter,
-    //              calc_flow_face_iter,                      /* обход по фейсам каждой ячейки для высчитывания потока */
+    //              NULL,//calc_flux_volume_iter,
+    //              calc_flux_face_iter,                      /* обход по фейсам каждой ячейки для высчитывания потока */
     //              NULL,
     //              NULL);
-    calc_flow_mesh_iter(p8est, mesh, ghost, ghost_data);
+    calc_flux_mesh_iter(p8est, mesh, ghost, ghost_data);
     SC_PRODUCTION("Neighbors iter ended\n");
 
     SC_PRODUCTION("Exchange started\n");

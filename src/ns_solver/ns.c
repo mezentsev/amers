@@ -70,7 +70,6 @@ void solve(p8est_t *p8est) {
     }
 }
 
-// TODO избавиться
 void get_quad_data(p8est_iter_volume_info_t *info,
                    void *user_data) {
     sc_array_t          *u_interp = (sc_array_t *) user_data;

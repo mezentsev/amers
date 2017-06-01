@@ -1,7 +1,7 @@
 #include "solver.h"
 #include "util.h"
 
-void calc_flow_mesh_iter(p8est_t *p8est,
+void calc_flux_mesh_iter(p8est_t *p8est,
                          p8est_mesh_t *mesh,
                          p8est_ghost_t *ghost,
                          void *ghost_data) {
@@ -69,7 +69,7 @@ void calc_flow_mesh_iter(p8est_t *p8est,
             } else {
                 SC_PRODUCTIONF("Data: %lf, nface: %d, nrank: %d, cur rank: %d\n",
                                ndata->dummy, nface, nrank, p8est->mpirank);
-                // TODO calc_flow(q, qn);
+                // TODO calc_flux(q, qn);
 
                 // сверху вниз
                 if (nface == FROM_TOP) {
@@ -83,7 +83,7 @@ void calc_flow_mesh_iter(p8est_t *p8est,
 }
 
 __deprecated
-void calc_flow_face_iter(p8est_iter_face_info_t *info,
+void calc_flux_face_iter(p8est_iter_face_info_t *info,
                          void *user_data) {
     p8est_quadrant_t            *quad = NULL;
     p8est_iter_face_side_t      *side = NULL;
@@ -159,7 +159,7 @@ void calc_flow_face_iter(p8est_iter_face_info_t *info,
 }
 
 __deprecated
-void calc_flow_volume_iter(p8est_iter_volume_info_t *info,
+void calc_flux_volume_iter(p8est_iter_volume_info_t *info,
                            void *user_data) {
     int                 i;
     p8est_quadrant_t    nq[P8EST_FACES];                // neighbor quads

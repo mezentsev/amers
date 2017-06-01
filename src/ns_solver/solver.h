@@ -54,7 +54,7 @@ void calc_cfl_timestep_iter(p8est_iter_volume_info_t *info,
  *
  * @param mesh сетка
  */
-void calc_flow_mesh_iter(p8est_t *p8est,
+void calc_flux_mesh_iter(p8est_t *p8est,
                          p8est_mesh_t *mesh,
                          p8est_ghost_t *ghost,
                          void *ghost_data);
@@ -87,7 +87,7 @@ void cflq(element_data_t *data, context_t *ctx, double h);
  * @param cur_quad
  * @param n_quad
  */
-void calc_flow(p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad);
+void calc_flux(p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad);
 
 /**
  * Преобразование из Z в Q

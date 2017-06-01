@@ -6,7 +6,7 @@ set(NS_SOURCE
         data.h
         util.h util.c
         timestep.c
-        flow.c)
+        flux.c)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/ns)
 include_directories(${P4EST_INCLUDE_DIR} ${P4EST_LIBRARY})
