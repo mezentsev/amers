@@ -1,5 +1,5 @@
 #include "ns.h"
-#include "util.h"
+#include "../util.h"
 
 void init(p8est_t *p8est,
           p4est_topidx_t which_tree,

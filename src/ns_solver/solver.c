@@ -1,7 +1,7 @@
 #include <math.h>
 #include <sc.h>
 #include "solver.h"
-#include "util.h"
+#include "../util.h"
 
 void init_solver(p8est_t *p8est, element_data_t *data) {
     context_t *ctx = (context_t *) p8est->user_pointer;

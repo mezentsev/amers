@@ -4,7 +4,8 @@ set(UPWIND_SOURCE
         upwind.c upwind.h
         solver.h solver.c
         data.h
-        util.h util.c
+        ../util.h
+        ../util.c
         timestep.c
         flux.c)
 

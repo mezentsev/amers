@@ -1,6 +1,6 @@
 #include <p8est_mesh.h>
 #include "solver.h"
-#include "util.h"
+#include "../util.h"
 
 void calc_flux_mesh_iter(p8est_t *p8est,
                          p8est_mesh_t *mesh,

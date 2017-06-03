@@ -4,7 +4,8 @@ set(NS_SOURCE
         ns.c ns.h
         solver.h solver.c
         data.h
-        util.h util.c
+        ../util.h
+        ../util.c
         timestep.c
         flux.c)
 

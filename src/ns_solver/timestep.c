@@ -1,5 +1,5 @@
 #include "solver.h"
-#include "util.h"
+#include "../util.h"
 
 void calc_cfl_timestep_iter(p8est_iter_volume_info_t *info,
                             void *user_data) { // user_data (в т.ч. госты не используется при вычислении временного шага)
