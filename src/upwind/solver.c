@@ -1,6 +1,7 @@
 #include <math.h>
 #include <sc.h>
 #include "solver.h"
+#include "../util.h"
 
 void init_solver(p8est_t *p8est, element_data_t *data) {
     context_t *ctx = (context_t *) p8est->user_pointer;
@@ -176,8 +177,6 @@ element_data_t calc_flux(p8est_t *p8est, p8est_quadrant_t *cur_quad, p8est_quadr
  */
 void cflq(element_data_t *data, context_t *ctx, double length) {
     P4EST_ASSERT(length > 0);
-    P4EST_ASSERT(data->Pressure > 0);
-    P4EST_ASSERT(data->Density > 0);
 
     double t1;
     double t2;

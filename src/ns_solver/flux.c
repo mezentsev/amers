@@ -57,21 +57,6 @@ void calc_flux_mesh_iter(p8est_t *p8est,
         data = (element_data_t *) q->p.user_data;
         init_empty_solver(p8est, &sum_flux); // инициализируем пустыми значениями для каждой ячейки
 
-        // TODO проверка на существование по всем фейсам
-        /*for (i = 0; i < P8EST_FACES; ++i) {
-            p8est_quadrant_all_face_neighbors(q, i, quad_n);
-
-            is_small_neighbors_exists = p8est_quadrant_exists(p8est, ghost, which_tree, &quad_n[0], NULL, NULL, NULL);
-            is_same_neighbor_exists = p8est_quadrant_exists(p8est, ghost, which_tree, &quad_n[P8EST_HALF], NULL, NULL, NULL);
-            is_big_neighbor_exists = p8est_quadrant_exists(p8est, ghost, which_tree, &quad_n[P8EST_HALF + 1], NULL, NULL, NULL);
-
-            if (is_same_neighbor_exists) {
-                element_data_t *d = (element_data_t *) quad_n[P8EST_HALF].p.user_data;
-
-                SC_PRODUCTIONF("Quad is (%d), neib (%d), value (%d)\n", q->p.which_tree, quad_n[P8EST_HALF].p.which_tree, d->Pressure);
-            }
-        }*/
-
         // инииализация итератора по соседям
         p8est_mesh_face_neighbor_init2(&mfn, p8est, ghost, mesh, which_tree, quadrant_id);
 
