@@ -73,15 +73,6 @@ void init_solver(p8est_t *p8est, element_data_t *q);
 void init_empty_solver(p8est_t *p8est, element_data_t *data);
 
 /**
- * Вычисление временного шага (CFL) для ячейки со стороной h
- *
- * @param data
- * @param ctx контекст приложения
- * @param h сторона ячейки
- */
-void cflq(element_data_t *data, context_t *ctx, double h);
-
-/**
  * Вычисление потока между двумя соседними ячейками
  *
  * @param cur_quad
@@ -90,23 +81,5 @@ void cflq(element_data_t *data, context_t *ctx, double h);
  * @return значение вектора потока между двумя ячейками
  */
 element_data_t calc_flux(p8est_t *p8est, p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad, int face);
-
-/**
- * Преобразование из Z в Q
- *
- * @param p8est
- * @param data
- */
-void updateQ(p8est_t *p8est, element_data_t *data);
-
-/**
- * Вычисление скорости света
- *
- * @param density значение плотности
- * @param pressure значение давления
- * @param adiabatic параметр адиабаты
- * @return
- */
-double calc_speed_sound(double density, double pressure, double adiabatic);
 
 #endif //AMR_SOLVER_H

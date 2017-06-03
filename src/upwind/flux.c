@@ -114,25 +114,19 @@ void calc_flux_mesh_iter(p8est_t *p8est,
             }
 
             // TODO в отдельную функцию
-            sum_flux.Pressure  += new_data.Pressure * Sn;
-            sum_flux.Density   += new_data.Density * Sn;
-            sum_flux.u1        += new_data.u1 * Sn;
-            sum_flux.u2        += new_data.u2 * Sn;
-            sum_flux.u3        += new_data.u3 * Sn;
+            sum_flux.dux        += new_data.dux * Sn;
+            sum_flux.duy        += new_data.duy * Sn;
+            sum_flux.duz        += new_data.duz * Sn;
         }
 
         // TODO в отдельную функцию
-        sum_flux.Pressure       = sum_flux.Pressure * ctx->dt / V;
-        sum_flux.Density        = sum_flux.Density * ctx->dt / V;
-        sum_flux.u1             = sum_flux.u1 * ctx->dt / V;
-        sum_flux.u2             = sum_flux.u2 * ctx->dt / V;
-        sum_flux.u3             = sum_flux.u3 * ctx->dt / V;
+        sum_flux.dux             = sum_flux.dux * ctx->dt / V;
+        sum_flux.duy             = sum_flux.duy * ctx->dt / V;
+        sum_flux.duz             = sum_flux.duz * ctx->dt / V;
 
-        data->Pressure         -= sum_flux.Pressure;
-        data->Density          -= sum_flux.Density;
-        data->u1               -= sum_flux.u1;
-        data->u2               -= sum_flux.u2;
-        data->u3               -= sum_flux.u3;
+        data->dux               -= sum_flux.dux;
+        data->duy               -= sum_flux.duy;
+        data->duz               -= sum_flux.duz;
 
         SC_PRODUCTION("*****************\n");
     }

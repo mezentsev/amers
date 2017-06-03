@@ -4,42 +4,43 @@
 #include "../util.h"
 
 void init_solver(p8est_t *p8est, element_data_t *data) {
-    context_t *ctx = (context_t *) p8est->user_pointer;
-    double e;
+    double          midpoint[3];
+    context_t       *ctx = (context_t *) p8est->user_pointer;
+    double          r2, dx, dy, dz;
+    double          arg, retval;
 
-    data->Density = 1;
-    data->Pressure = 1;
-    data->u1 = 1.5;
-    data->u2 = 0.1;
-    data->u3 = 0;
+    get_midpoint(p8est, data->quad.p.which_tree, &data->quad, midpoint);
+
+    data->dux = -1;
+    data->duy = -1;
+    data->duz = -1;
+
+    // Compute the value and derivatives of the initial condition.
+    r2 = 0.;
+
+    // расстояние до центра
+    dx = midpoint[0] - ctx->center[0];
+    dy = midpoint[1] - ctx->center[1];
+    dz = midpoint[2] - ctx->center[2];
+
+    // радиус
+    r2 += dx * dx + dy * dy + dz * dz;
+
+    data->u = exp(-(1./2.) * r2 / (ctx->width * ctx->width));
+
+    data->dux = -(1./ (ctx->width * ctx->width)) * dx * data->u;
+    data->duy = -(1./ (ctx->width * ctx->width)) * dy * data->u;
+    data->duz = -(1./ (ctx->width * ctx->width)) * dz * data->u;
+
     data->dummy = 0;
-
-    e = data->Pressure / ((ctx->Adiabatic - 1) * data->Density);
-    data->E = e + (pow(data->u1, 2) + pow(data->u2, 2) + pow(data->u3, 2))/2;
-
-    updateQ(p8est, data);
 }
 
 void init_empty_solver(p8est_t *p8est, element_data_t *data) {
-    data->Density = 0;
-    data->Pressure = 0;
-    data->u1 = 0;
-    data->u2 = 0;
-    data->u3 = 0;
+    data->dux = 0;
+    data->duy = 0;
+    data->duz = 0;
+
     data->dummy = 0;
-
-    data->E = 0;
-
-    updateQ(p8est, data);
-}
-
-void updateQ(p8est_t *p8est, element_data_t *data) {
-    data->Q.D   = data->Density;
-    data->Q.Du1 = data->Density * data->u1;
-    data->Q.Du2 = data->Density * data->u2;
-    data->Q.Du3 = data->Density * data->u3;
-
-    data->Q.PE  = data->Pressure * data->E;
 }
 
 element_data_t get_boundary_data_by_face(p8est_t *p8est,
@@ -60,67 +61,48 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
         case 0:                      /* -x side */
             SC_PRODUCTION("-x side\n");
             // втекает
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = data->u2;
-            boundary_data.u3        = data->u3;
+            boundary_data.dux        = data->dux;
+            boundary_data.duy        = data->duy;
+            boundary_data.duz        = data->duz;
             break;
         case 1:                      /* +x side */
             // вытекает
             SC_PRODUCTION("+x side\n");
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = data->u2;
-            boundary_data.u3        = data->u3;
+            boundary_data.dux        = data->dux;
+            boundary_data.duy        = data->duy;
+            boundary_data.duz        = data->duz;
             break;
         case 2:                      /* -y side */
             SC_PRODUCTION("-y side\n");
             // стенка
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = -data->u2;
-            boundary_data.u3        = data->u3;
+            boundary_data.dux        = data->dux;
+            boundary_data.duy        = -data->duy;
+            boundary_data.duz        = data->duz;
             break;
         case 3:                      /* +y side */
             SC_PRODUCTION("+y side\n");
             // стенка
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = -data->u2;
-            boundary_data.u3        = data->u3;
+            boundary_data.dux        = data->dux;
+            boundary_data.duy        = -data->duy;
+            boundary_data.duz        = data->duz;
             break;
         case 4:                      /* -z side */
             SC_PRODUCTION("-z side\n");
             // стенка
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = data->u2;
-            boundary_data.u3        = -data->u3;
+            boundary_data.dux        = data->dux;
+            boundary_data.duy        = data->duy;
+            boundary_data.duz        = -data->duz;
             break;
         case 5:                      /* +z side */
             SC_PRODUCTION("+z side\n");
             // стенка
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = data->u2;
-            boundary_data.u3        = -data->u3;
+            boundary_data.dux        = data->dux;
+            boundary_data.duy        = data->duy;
+            boundary_data.duz        = -data->duz;
             break;
         default:
             SC_ABORT("Wrong face");
     }
-
-    // нужно пересчитать энергию по новым данным
-    e = boundary_data.Pressure / ((ctx->Adiabatic - 1) * boundary_data.Density);
-    boundary_data.E = e + (pow(boundary_data.u1, 2) + pow(boundary_data.u2, 2) + pow(boundary_data.u3, 2))/2;
-
-    // Z -> Q
-    updateQ(p8est, &boundary_data);
 
     return boundary_data;
 }
@@ -163,38 +145,7 @@ element_data_t calc_flux(p8est_t *p8est, p8est_quadrant_t *cur_quad, p8est_quadr
             SC_ABORT("Wrong face");
     }
 
-    updateQ(p8est, &q_new);
-
     return q_new;
-}
-
-/**
- * Условие устойчивости (CFL - Куранта-Фридриха-Леви)
- *
- * @param data данные ячейки
- * @param ctx контекст. в dt записывается курантовый шаг
- * @param length сторона ячейки
- */
-void cflq(element_data_t *data, context_t *ctx, double length) {
-    P4EST_ASSERT(length > 0);
-
-    double t1;
-    double t2;
-    double t3;
-    double dt;
-    double speed_sound = calc_speed_sound(data->Density, data->Pressure, ctx->Adiabatic);
-
-    t1 = length/(fabs(data->u1) + speed_sound);
-    t2 = length/(fabs(data->u2) + speed_sound);
-    t3 = length/(fabs(data->u3) + speed_sound);
-
-    dt = 1/(1/t1 + 1/t2 + 1/t3);
-
-    ctx->dt = (ctx->dt == 0) ? dt : SC_MIN(ctx->dt, dt);
-}
-
-double calc_speed_sound(double density, double pressure, double adiabatic) {
-    return sqrt(adiabatic * pressure / density);
 }
 
 void solver_step(p8est_t *p8est,
@@ -217,18 +168,18 @@ void solver_step(p8est_t *p8est,
     p8est_ghost_exchange_data (p8est, ghost, ghost_data);
     SC_PRODUCTION("Exchange ended\n");
 
-    /* calc cfl */
-    SC_PRODUCTION("Cell iter started\n");
-    p8est_iterate(p8est, NULL, NULL,        /* слой гостовых ячеек не нужен, доп. параметры тоже */
-                  calc_cfl_timestep_iter,        /* вычисление временного шага, проходя по всем ячейкам */
-                  NULL, NULL, NULL);
-    SC_PRODUCTION("Cell iter ended\n");
+    /* calc timestep */
+    //SC_PRODUCTION("Cell iter started\n");
+    //p8est_iterate(p8est, NULL, NULL,        /* слой гостовых ячеек не нужен, доп. параметры тоже */
+    //              calc_cfl_timestep_iter,        /* вычисление временного шага, проходя по всем ячейкам */
+    //              NULL, NULL, NULL);
+    //SC_PRODUCTION("Cell iter ended\n");
 
     /* calc min dt */
-    SC_PRODUCTIONF("dt old: %.20lf\n", ctx->dt);
-    mpiret = sc_MPI_Allreduce(MPI_IN_PLACE, &ctx->dt, 1, MPI_DOUBLE, MPI_MIN, p8est->mpicomm);
-    SC_CHECK_MPI(mpiret);
-    SC_PRODUCTIONF("dt new: %.20lf\n", ctx->dt);
+    //SC_PRODUCTIONF("dt old: %.20lf\n", ctx->dt);
+    //mpiret = sc_MPI_Allreduce(MPI_IN_PLACE, &ctx->dt, 1, MPI_DOUBLE, MPI_MIN, p8est->mpicomm);
+    //SC_CHECK_MPI(mpiret);
+    //SC_PRODUCTIONF("dt new: %.20lf\n", ctx->dt);
 
     /* exchange ghost data */
     SC_PRODUCTION("Exchange started\n");

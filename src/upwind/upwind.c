@@ -1,5 +1,5 @@
 #include "upwind.h"
-#include "util.h"
+#include "../util.h"
 
 void init(p8est_t *p8est,
           p4est_topidx_t which_tree,
@@ -164,16 +164,14 @@ int main (int argc, char **argv) {
     p8est_t                 *p8est;
     p8est_connectivity_t    *conn;
 
-    ctx.center[0] = 0.5;
-    ctx.center[1] = 0.5;
-    ctx.center[2] = 0.5;
+    ctx.center[0] = 0.3;
+    ctx.center[1] = 0.3;
+    ctx.center[2] = 0.3;
 
-    ctx.width = 0.2;
+    ctx.width = 0.1;
     ctx.steps = 20;
     ctx.dt = 0;
     ctx.get_boundary_data_by_face = get_boundary_data_by_face;
-
-    ctx.Adiabatic = 1.4; //air
 
     /* Initialize MPI; see sc_mpi.h.
      * If configure --enable-mpi is given these are true MPI calls.
@@ -203,7 +201,7 @@ int main (int argc, char **argv) {
     p8est_refine(p8est, 1, refine_fn, init);
     //p8est_coarsen(p8est, 1, coarsen_fn, init);
 
-    p8est_balance(p8est, P4EST_CONNECT_FULL, init);
+    p8est_balance(p8est, P8EST_CONNECT_FULL, init);
     p8est_partition (p8est, 1, NULL);
 
     // SOLVE

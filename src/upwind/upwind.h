@@ -32,13 +32,6 @@
 #include "data.h"
 #include "solver.h"
 
-#define FROM_RIGHT 0
-#define FROM_LEFT 1
-#define FROM_TOP 2
-#define FROM_BOTTOM 3
-#define FROM_BEHIND 4
-#define FROM_FRONT 5
-
 /**
  * Созранить решение в VTK
  * @param p8est

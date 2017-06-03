@@ -166,7 +166,7 @@ int main (int argc, char **argv) {
     p8est_t                 *p8est;
     p8est_connectivity_t    *conn;
 
-    ctx.center[0] = 0.1;
+    ctx.center[0] = 0.5;
     ctx.center[1] = 0.5;
     ctx.center[2] = 0.5;
 
