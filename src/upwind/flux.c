@@ -17,7 +17,7 @@ void calc_flux_mesh_iter(p8est_t *p8est,
     p8est_quadrant_t            *qn;
 
     p8est_mesh_face_neighbor_t  mfn;
-    int                         nface, nrank, neib_face;
+    int                         nface, nrank;
     int                         nquadrant_id;
     int                         nwhich_tree = -1;
     double                      nh; // сторона соседа
@@ -27,8 +27,6 @@ void calc_flux_mesh_iter(p8est_t *p8est,
     double                      Sn; // площадь между соседом и текущей ячейкой
     double                      h; // сторона текущей ячейки
 
-    int                         qtf;
-    p4est_locidx_t              qtq, quadfacecode;
     p8est_quadrant_t            quad_n[P8EST_FACES];                // neighbor quads
     int                         i = 0;
     int                         is_small_neighbors_exists;
@@ -42,8 +40,6 @@ void calc_flux_mesh_iter(p8est_t *p8est,
 
     // прохождение по всем локальным ячейкам
     for (qumid = 0; qumid < mesh->local_num_quadrants; ++qumid) {
-        which_tree = -1;
-        neib_face = 0;
         // получение текущей ячейки
         q = p8est_mesh_quadrant_cumulative(p8est,
                                            qumid,
@@ -58,7 +54,7 @@ void calc_flux_mesh_iter(p8est_t *p8est,
         init_empty_solver(p8est, &sum_flux); // инициализируем пустыми значениями для каждой ячейки
 
         // TODO проверка на существование по всем фейсам
-        /*for (i = 0; i < P8EST_FACES; ++i) {
+        for (i = 0; i < P8EST_FACES; ++i) {
             p8est_quadrant_all_face_neighbors(q, i, quad_n);
 
             is_small_neighbors_exists = p8est_quadrant_exists(p8est, ghost, which_tree, &quad_n[0], NULL, NULL, NULL);
@@ -70,7 +66,7 @@ void calc_flux_mesh_iter(p8est_t *p8est,
 
                 SC_PRODUCTIONF("Quad is (%d), neib (%d), value (%d)\n", q->p.which_tree, quad_n[P8EST_HALF].p.which_tree, d->Pressure);
             }
-        }*/
+        }
 
         // инииализация итератора по соседям
         p8est_mesh_face_neighbor_init2(&mfn, p8est, ghost, mesh, which_tree, quadrant_id);
@@ -80,12 +76,10 @@ void calc_flux_mesh_iter(p8est_t *p8est,
          * если qn == q, то nface - граничный face
          */
         while ((qn = p8est_mesh_face_neighbor_next(&mfn,
-                                                  &nwhich_tree,
-                                                  &nquadrant_id,
-                                                  &nface,
-                                                  &nrank)) != NULL) {
-            neib_face = get_neighbour_face_by_next_one(mfn.face, mfn.subface);
-
+                                                   &nwhich_tree,
+                                                   &nquadrant_id,
+                                                   &nface,
+                                                   &nrank)) != NULL) {
             // длина стороны соседа
             nh = (double) P4EST_QUADRANT_LEN (qn->level) / (double) P4EST_ROOT_LEN;
 
@@ -100,30 +94,26 @@ void calc_flux_mesh_iter(p8est_t *p8est,
             // извлечение данных из соседа
             ndata = (element_data_t *) p8est_mesh_face_neighbor_data(&mfn, ghost_data);
 
-            P4EST_ASSERT (p8est_quadrant_is_equal (qn, &(ndata->quad)));
-            P4EST_ASSERT (ndata->quad.p.which_tree == which_tree);
-
             // Граничные значения забираем в соответствии с функцией контекста
             if (is_boundary) {
-                SC_PRODUCTIONF("[BOUNDARY] Data: %lf, nface: %d, nrank: %d, cur rank: %d, neib_face: %d\n",
-                               ndata->dummy, nface, nrank, p8est->mpirank, neib_face);
+                SC_PRODUCTIONF("[BOUNDARY] Data: %lf, nface: %d, nrank: %d, cur rank: %d\n",
+                               ndata->dummy, nface, nrank, p8est->mpirank);
 
                 new_data = get_boundary_data_by_face(p8est, qn, nface);
                 SC_PRODUCTIONF("New data from boundary: %lf\n", new_data.dummy);
 
                 // TODO test
-                if (neib_face == 3 && data->dummy == 0) {
-                    data->dummy += new_data.dummy;
-                }
+                data->dummy += new_data.dummy;
             } else {
-                SC_PRODUCTIONF("Data: %lf, nface: %d, nrank: %d, cur rank: %d, neib_face: %d\n",
-                               ndata->dummy, nface, nrank, p8est->mpirank, neib_face);
+                SC_PRODUCTIONF("Data: %lf, nface: %d, nrank: %d, cur rank: %d, face: %d, subface: %d\n",
+                               ndata->dummy, nface, nrank, p8est->mpirank, mfn.face, mfn.subface);
 
-                new_data = calc_flux(p8est, q, qn, neib_face);
+                // TODO проблема с face - почему не тот? откуда берётся 6?
+                new_data = calc_flux(p8est, q, qn, nface);
 
                 // TODO test
-                // перенос сверху вниз
-                if (neib_face == 3) {
+                // сверху вниз
+                if (nface == FROM_TOP) {
                     data->dummy += ndata->dummy;
                 }
             }

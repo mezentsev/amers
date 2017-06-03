@@ -23,7 +23,6 @@ typedef struct data {
 
     double dummy;
 
-    p8est_quadrant_t quad;
 } element_data_t;
 
 

@@ -69,15 +69,3 @@ void quadrant_pprint (p8est_quadrant_t * q, int is_ghost) {
         SC_PRODUCTIONF(" value NOT a ghost: %d\n", q->p.user_int);
     }
 }
-
-int get_neighbour_face_by_next_one(const int next_face, const int next_subface) {
-    int face_code = 0;
-
-    if (next_subface == 0) {
-        face_code = next_face - 1;
-    } else {
-        face_code = next_face;
-    }
-
-    return face_code;
-}

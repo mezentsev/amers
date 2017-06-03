@@ -1,13 +1,11 @@
-#include "ns.h"
+#include "upwind.h"
 #include "util.h"
 
 void init(p8est_t *p8est,
           p4est_topidx_t which_tree,
           p8est_quadrant_t *quad) {
-    context_t       *ctx    = (context_t *) p8est->user_pointer;
-    element_data_t  *data   = (element_data_t *) quad->p.user_data;
-    data->quad              = *quad;
-    data->quad.p.which_tree = which_tree;
+    context_t       *ctx = (context_t *) p8est->user_pointer;
+    element_data_t  *data = (element_data_t *) quad->p.user_data;
 
     init_solver(p8est, data);
 }
@@ -106,7 +104,7 @@ void write_solution(p8est_t *p8est,
     p4est_locidx_t      numquads;
     sc_array_t          *data;
 
-    snprintf (filename, 12, "solution_%02d", step);
+    snprintf (filename, 12, "solution_%04d", step);
     numquads = p8est->local_num_quadrants;
 
     /* create a vector with one value for the corner of every local quadrant
@@ -166,12 +164,12 @@ int main (int argc, char **argv) {
     p8est_t                 *p8est;
     p8est_connectivity_t    *conn;
 
-    ctx.center[0] = 0.1;
+    ctx.center[0] = 0.5;
     ctx.center[1] = 0.5;
     ctx.center[2] = 0.5;
 
     ctx.width = 0.2;
-    ctx.steps = 10;
+    ctx.steps = 20;
     ctx.dt = 0;
     ctx.get_boundary_data_by_face = get_boundary_data_by_face;
 

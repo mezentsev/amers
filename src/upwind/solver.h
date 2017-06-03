@@ -2,7 +2,7 @@
 #define AMR_SOLVER_H
 
 #include "data.h"
-#include "ns.h"
+#include "upwind.h"
 
 /**
  * Решить шаг N
