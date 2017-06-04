@@ -10,7 +10,7 @@
 typedef struct data {
     double u;
     double dudt;            /* производная по времени */
-    double dux, duy, duz;      /* значение скорости по x, y, z */
+    double du[P4EST_DIM];      /* значение скорости по x, y, z */
     double dummy;
 
     p8est_quadrant_t quad;
@@ -26,6 +26,8 @@ typedef struct context {
     double  width;
 
     double  dt;                   /* временной шаг */
+
+    double  v[P4EST_DIM];
 
     /**
      * Прототип функции для получения данных от границ сетки

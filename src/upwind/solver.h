@@ -41,15 +41,6 @@ void solver_step(p8est_t *p8est,
 element_data_t get_boundary_data_by_face(p8est_t *p8est, p8est_quadrant_t *quad, int face);
 
 /**
- * Обход всех ячеек для вычисления временного шага
- *
- * @param p8est_iter_volume_info_t данные ячейки
- * @param user_data
- */
-void calc_cfl_timestep_iter(p8est_iter_volume_info_t *info,
-                            void *user_data);
-
-/**
  * Обход по сетке для вычисления потока
  *
  * @param mesh сетка
@@ -58,28 +49,92 @@ void calc_flux_mesh_iter(p8est_t *p8est,
                          p8est_mesh_t *mesh,
                          p8est_ghost_t *ghost,
                          void *ghost_data);
+
+
+/** Approximate the flux across a boundary between quadrants.
+ *
+ * We use a very simple upwind numerical flux.
+ *
+ * This function matches the p4est_iter_face_t prototype used by
+ * p4est_iterate().
+ *
+ * \param [in] info the information about the quadrants on either side of the
+ *                  interface, populated by p4est_iterate()
+ * \param [in] user_data the user_data given to p4est_iterate(): in this case,
+ *                       it points to the ghost_data array, which contains the
+ *                       element_data_t data for all of the ghost cells, which
+ *                       was populated by p4est_ghost_exchange_data()
+ */
+void calc_flux_face_iter(p8est_iter_face_info_t *face_info, void *user_data);
+
+/**
+* Сброс производных
+*
+* @param p8est
+* @param mesh сетка
+*/
+void reset_derivatives(p8est_t *p8est,
+                       p8est_mesh_t *mesh);
+
+
+/**
+ * Approximate the divergence of (vu) on each quadrant
+ *
+ * We use piecewise constant approximations on each quadrant, so the value is
+ * always 0.
+ */
+void quad_divergence (p8est_t *p8est,
+                      p8est_mesh_t *mesh);
+
+
+/** For two quadrants on either side of a face, estimate the derivative normal
+ * to the face.
+ *
+ * This function matches the p4est_iter_face_t prototype used by
+ * p4est_iterate().
+ *
+ * \param [in] info          the information about this quadrant that has been
+ *                           populated by p4est_iterate()
+ * \param [in] user_data the user_data given to p4est_iterate(): in this case,
+ *                       it points to the ghost_data array, which contains the
+ *                       elements_data_t data for all of the ghost cells, which
+ *                       was populated by p4est_ghost_exchange_data()
+ */
+void minmod_estimate (p8est_iter_face_info_t * info, void *user_data);
+
+
+void timestep_update_volume_iter(p8est_iter_volume_info_t *info,
+                                 void *user_data);
+
+
+/**
+ * Получить новое значение dt
+ *
+ * @param p8est
+ * @param mesh
+ * @return dt
+ */
+double timestep_update_mesh_iter(p8est_t *p8est,
+                                 p8est_mesh_t *mesh);
+
 /**
  * Инициализация солвера
  *
- * @param q параметр
+ * @param p8est
+ * @param which_tree
+ * @param quad
  */
-void init_solver(p8est_t *p8est, element_data_t *q);
+void init_solver(p8est_t *p8est,
+                 p4est_topidx_t which_tree,
+                 p8est_quadrant_t *quad);
 
 /**
- * Инициализация солвера пустыми векторами
- *
- * @param q параметр
+ * Созранить решение в VTK
+ * @param p8est
+ * @param step
  */
-void init_empty_solver(p8est_t *p8est, element_data_t *data);
+void write_solution(p8est_t *p8est,
+                    int step);
 
-/**
- * Вычисление потока между двумя соседними ячейками
- *
- * @param cur_quad
- * @param n_quad
- * @param face
- * @return значение вектора потока между двумя ячейками
- */
-element_data_t calc_flux(p8est_t *p8est, p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad, int face);
 
 #endif //AMR_SOLVER_H

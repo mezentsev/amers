@@ -31,13 +31,6 @@
 
 #include "data.h"
 #include "solver.h"
-
-/**
- * Созранить решение в VTK
- * @param p8est
- * @param step
- */
-void write_solution(p8est_t *p8est,
-                    int step);
+#include "../util.h"
 
 #endif //AMR_NS_H
