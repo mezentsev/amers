@@ -8,19 +8,9 @@
  * Данные каждой ячейки, которые можно получить через p.user_data
  */
 typedef struct data {
-    double Density;         /* плотность */
-    double Pressure;        /* давление */
-    double u1, u2, u3;      /* значение скорости по x, y, z */
-    double E;               /* полная энергия */
-
-    struct {
-        double D;
-        double Du1;
-        double Du2;
-        double Du3;
-        double PE;
-    } Q;                    /* значение Q */
-
+    double u;
+    double dudt;            /* производная по времени */
+    double du[P4EST_DIM];      /* значение скорости по x, y, z */
     double dummy;
 
     p8est_quadrant_t quad;
@@ -36,7 +26,8 @@ typedef struct context {
     double  width;
 
     double  dt;                   /* временной шаг */
-    double  Adiabatic;            /* показатель адиабаты */
+
+    double  v[P4EST_DIM];
 
     /**
      * Прототип функции для получения данных от границ сетки
