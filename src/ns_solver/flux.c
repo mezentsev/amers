@@ -6,8 +6,6 @@ element_data_t calc_flux(p8est_t *p8est, p8est_quadrant_t *cur_quad, p8est_quadr
     element_data_t z;
     init_empty_solver(p8est, &z);
 
-    z.Pressure =
-
     int nx = 0;
     int ny = 0;
     int nz = 0;
