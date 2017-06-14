@@ -58,7 +58,7 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
     /* направление face от соседа к текущей ячейке */
     switch (face) {
         case 0:                      /* -x side */
-            SC_PRODUCTION("-x side\n");
+            SC_LDEBUG("-x side\n");
             // втекает
             boundary_data.Density   = data->Density;
             boundary_data.Pressure  = data->Pressure;
@@ -68,7 +68,7 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
             break;
         case 1:                      /* +x side */
             // вытекает
-            SC_PRODUCTION("+x side\n");
+            SC_LDEBUG("+x side\n");
             boundary_data.Density   = data->Density;
             boundary_data.Pressure  = data->Pressure;
             boundary_data.u1        = data->u1;
@@ -76,7 +76,7 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
             boundary_data.u3        = data->u3;
             break;
         case 2:                      /* -y side */
-            SC_PRODUCTION("-y side\n");
+            SC_LDEBUG("-y side\n");
             // стенка
             boundary_data.Density   = data->Density;
             boundary_data.Pressure  = data->Pressure;
@@ -85,7 +85,7 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
             boundary_data.u3        = data->u3;
             break;
         case 3:                      /* +y side */
-            SC_PRODUCTION("+y side\n");
+            SC_LDEBUG("+y side\n");
             // стенка
             boundary_data.Density   = data->Density;
             boundary_data.Pressure  = data->Pressure;
@@ -94,7 +94,7 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
             boundary_data.u3        = data->u3;
             break;
         case 4:                      /* -z side */
-            SC_PRODUCTION("-z side\n");
+            SC_LDEBUG("-z side\n");
             // стенка
             boundary_data.Density   = data->Density;
             boundary_data.Pressure  = data->Pressure;
@@ -103,7 +103,7 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
             boundary_data.u3        = -data->u3;
             break;
         case 5:                      /* +z side */
-            SC_PRODUCTION("+z side\n");
+            SC_LDEBUG("+z side\n");
             // стенка
             boundary_data.Density   = data->Density;
             boundary_data.Pressure  = data->Pressure;
@@ -123,49 +123,6 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
     updateQ(p8est, &boundary_data);
 
     return boundary_data;
-}
-
-element_data_t calc_flux(p8est_t *p8est, p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad, int nface) {
-    element_data_t q_new;
-    init_solver(p8est, &q_new);
-
-    int nx = 0;
-    int ny = 0;
-    int nz = 0;
-
-    /* направление face от соседа к текущей ячейке */
-    switch (nface) {
-        case 0:                      /* -x side */
-            SC_PRODUCTION("-x side\n");
-            nx = 1;
-            break;
-        case 1:                      /* +x side */
-            SC_PRODUCTION("+x side\n");
-            nx = -1;
-            break;
-        case 2:                      /* -y side */
-            SC_PRODUCTION("-y side\n");
-            ny = 1;
-            break;
-        case 3:                      /* +y side */
-            SC_PRODUCTION("+y side\n");
-            ny = -1;
-            break;
-        case 4:                      /* -z side */
-            SC_PRODUCTION("-z side\n");
-            nz = 1;
-            break;
-        case 5:                      /* +z side */
-            SC_PRODUCTION("+z side\n");
-            nz = -1;
-            break;
-        default:
-            SC_ABORT("Wrong face");
-    }
-
-    updateQ(p8est, &q_new);
-
-    return q_new;
 }
 
 /**
@@ -220,7 +177,7 @@ void solver_step(p8est_t *p8est,
     /* calc cfl */
     SC_PRODUCTION("Cell iter started\n");
     p8est_iterate(p8est, NULL, NULL,        /* слой гостовых ячеек не нужен, доп. параметры тоже */
-                  calc_cfl_timestep_iter,        /* вычисление временного шага, проходя по всем ячейкам */
+                  calc_cfl_timestep_iter,   /* вычисление временного шага, проходя по всем ячейкам */
                   NULL, NULL, NULL);
     SC_PRODUCTION("Cell iter ended\n");
 

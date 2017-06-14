@@ -100,29 +100,195 @@ void get_quad_data(p8est_iter_volume_info_t *info,
     }
 }
 
+void get_u1_data(p8est_iter_volume_info_t *info,
+                   void *user_data) {
+    sc_array_t          *u_interp = (sc_array_t *) user_data;
+
+    p8est_t             *p8est = info->p4est;
+    p8est_quadrant_t    *q = info->quad;
+    p4est_topidx_t      which_tree = info->treeid;
+    p4est_locidx_t      local_id = info->quadid;
+
+    p8est_tree_t        *tree;
+    element_data_t      *data = (element_data_t *) q->p.user_data;
+    p4est_locidx_t      array_offset;
+    double              *this_u_ptr;
+    int                 i;
+
+    tree = p8est_tree_array_index (p8est->trees, which_tree);
+    local_id += tree->quadrants_offset;             /* now the id is relative to the MPI process */
+    array_offset = P8EST_CHILDREN * local_id;      /* each local quadrant has 2^d (P4EST_CHILDREN) values in u_interp */
+
+    for (i = 0; i < P8EST_CHILDREN; i++) {
+        this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
+        this_u_ptr[0] = data->u1;
+    }
+}
+
+void get_u2_data(p8est_iter_volume_info_t *info,
+                 void *user_data) {
+    sc_array_t          *u_interp = (sc_array_t *) user_data;
+
+    p8est_t             *p8est = info->p4est;
+    p8est_quadrant_t    *q = info->quad;
+    p4est_topidx_t      which_tree = info->treeid;
+    p4est_locidx_t      local_id = info->quadid;
+
+    p8est_tree_t        *tree;
+    element_data_t      *data = (element_data_t *) q->p.user_data;
+    p4est_locidx_t      array_offset;
+    double              *this_u_ptr;
+    int                 i;
+
+    tree = p8est_tree_array_index (p8est->trees, which_tree);
+    local_id += tree->quadrants_offset;             /* now the id is relative to the MPI process */
+    array_offset = P8EST_CHILDREN * local_id;      /* each local quadrant has 2^d (P4EST_CHILDREN) values in u_interp */
+
+    for (i = 0; i < P8EST_CHILDREN; i++) {
+        this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
+        this_u_ptr[0] = data->u2;
+    }
+}
+
+void get_u3_data(p8est_iter_volume_info_t *info,
+                 void *user_data) {
+    sc_array_t          *u_interp = (sc_array_t *) user_data;
+
+    p8est_t             *p8est = info->p4est;
+    p8est_quadrant_t    *q = info->quad;
+    p4est_topidx_t      which_tree = info->treeid;
+    p4est_locidx_t      local_id = info->quadid;
+
+    p8est_tree_t        *tree;
+    element_data_t      *data = (element_data_t *) q->p.user_data;
+    p4est_locidx_t      array_offset;
+    double              *this_u_ptr;
+    int                 i;
+
+    tree = p8est_tree_array_index (p8est->trees, which_tree);
+    local_id += tree->quadrants_offset;             /* now the id is relative to the MPI process */
+    array_offset = P8EST_CHILDREN * local_id;      /* each local quadrant has 2^d (P4EST_CHILDREN) values in u_interp */
+
+    for (i = 0; i < P8EST_CHILDREN; i++) {
+        this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
+        this_u_ptr[0] = data->u3;
+    }
+}
+
+void get_density_data(p8est_iter_volume_info_t *info,
+                 void *user_data) {
+    sc_array_t          *u_interp = (sc_array_t *) user_data;
+
+    p8est_t             *p8est = info->p4est;
+    p8est_quadrant_t    *q = info->quad;
+    p4est_topidx_t      which_tree = info->treeid;
+    p4est_locidx_t      local_id = info->quadid;
+
+    p8est_tree_t        *tree;
+    element_data_t      *data = (element_data_t *) q->p.user_data;
+    p4est_locidx_t      array_offset;
+    double              *this_u_ptr;
+    int                 i;
+
+    tree = p8est_tree_array_index (p8est->trees, which_tree);
+    local_id += tree->quadrants_offset;             /* now the id is relative to the MPI process */
+    array_offset = P8EST_CHILDREN * local_id;      /* each local quadrant has 2^d (P4EST_CHILDREN) values in u_interp */
+
+    for (i = 0; i < P8EST_CHILDREN; i++) {
+        this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
+        this_u_ptr[0] = data->Density;
+    }
+}
+
+void get_pressure_data(p8est_iter_volume_info_t *info,
+                 void *user_data) {
+    sc_array_t          *u_interp = (sc_array_t *) user_data;
+
+    p8est_t             *p8est = info->p4est;
+    p8est_quadrant_t    *q = info->quad;
+    p4est_topidx_t      which_tree = info->treeid;
+    p4est_locidx_t      local_id = info->quadid;
+
+    p8est_tree_t        *tree;
+    element_data_t      *data = (element_data_t *) q->p.user_data;
+    p4est_locidx_t      array_offset;
+    double              *this_u_ptr;
+    int                 i;
+
+    tree = p8est_tree_array_index (p8est->trees, which_tree);
+    local_id += tree->quadrants_offset;             /* now the id is relative to the MPI process */
+    array_offset = P8EST_CHILDREN * local_id;      /* each local quadrant has 2^d (P4EST_CHILDREN) values in u_interp */
+
+    for (i = 0; i < P8EST_CHILDREN; i++) {
+        this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
+        this_u_ptr[0] = data->Pressure;
+    }
+}
+
 void write_solution(p8est_t *p8est,
                     int step) {
     char                filename[BUFSIZ] = { '\0' };
     p4est_locidx_t      numquads;
     sc_array_t          *data;
+    sc_array_t          *u1;
+    sc_array_t          *u2;
+    sc_array_t          *u3;
+    sc_array_t          *density;
+    sc_array_t          *pressure;
 
     snprintf (filename, 12, "solution_%02d", step);
     numquads = p8est->local_num_quadrants;
 
     /* create a vector with one value for the corner of every local quadrant
      * (the number of children is always the same as the number of corners) */
-    data = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    data        = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    u1          = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    u2          = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    u3          = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    density     = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
+    pressure    = sc_array_new_size (sizeof (double), numquads * P8EST_CHILDREN);
 
-    /* Use the iterator to visit every cell and fill in the solution values.
-     * Using the iterator is not absolutely necessary in this case: we could
-     * also loop over every tree (there is only one tree in this case) and loop
-     * over every quadrant within every tree */
     p8est_iterate(p8est, NULL,   /* we don't need any ghost quadrants for this loop */
                   (void *) data,     /* pass in boundary so that we can fill it */
                   get_quad_data,
                   NULL,          /* there is no callback for the faces between quadrants */
                   NULL,          /* there is no callback for the edges between quadrants */
                   NULL);         /* there is no callback for the corners between quadrants */
+
+    p8est_iterate(p8est, NULL,
+                  (void *) u1,
+                  get_u1_data,
+                  NULL,
+                  NULL,
+                  NULL);
+
+    p8est_iterate(p8est, NULL,
+                  (void *) u2,
+                  get_u2_data,
+                  NULL,
+                  NULL,
+                  NULL);
+
+    p8est_iterate(p8est, NULL,
+                  (void *) u3,
+                  get_u3_data,
+                  NULL,
+                  NULL,
+                  NULL);
+
+    p8est_iterate(p8est, NULL,
+                  (void *) pressure,
+                  get_pressure_data,
+                  NULL,
+                  NULL,
+                  NULL);
+
+    p8est_iterate(p8est, NULL,
+                  (void *) density,
+                  get_density_data,
+                  NULL,
+                  NULL,
+                  NULL);
 
     /* create VTK output context and set its parameters */
     p8est_vtk_context_t *context = p8est_vtk_context_new (p8est, filename);
@@ -145,9 +311,19 @@ void write_solution(p8est_t *p8est,
                     P8EST_STRING "_vtk: Error writing cell data");
 
     /* write one scalar field: the solution value */
-    context = p8est_vtk_write_point_dataf(context, 1, 0,
-                                          "boundary",
+    context = p8est_vtk_write_point_dataf(context, 6, 0,
+                                          "dummy",
                                           data,
+                                          "u1",
+                                          u1,
+                                          "u2",
+                                          u2,
+                                          "u3",
+                                          u3,
+                                          "pressure",
+                                          pressure,
+                                          "density",
+                                          density,
                                           context);
     SC_CHECK_ABORT (context != NULL,
                     P8EST_STRING "_vtk: Error writing cell data");
@@ -157,6 +333,11 @@ void write_solution(p8est_t *p8est,
                     P8EST_STRING "_vtk: Error writing footer");
 
     sc_array_destroy(data);
+    sc_array_destroy(u1);
+    sc_array_destroy(u2);
+    sc_array_destroy(u3);
+    sc_array_destroy(pressure);
+    sc_array_destroy(density);
 }
 
 int main (int argc, char **argv) {
@@ -195,7 +376,7 @@ int main (int argc, char **argv) {
     p8est = p8est_new_ext (mpicomm, /* communicator */
                            conn,    /* connectivity */
                            0,       /* minimum quadrants per MPI process */
-                           1,       /* minimum level of refinement */
+                           3,       /* minimum level of refinement */
                            1,       /* fill uniform */
                            sizeof (element_data_t),         /* data size */
                            init,  /* initializes data */
