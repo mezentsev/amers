@@ -2,40 +2,50 @@
 #include "solver.h"
 #include "../util.h"
 
-element_data_t calc_flux(p8est_t *p8est, p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad, int nface) {
+element_data_t calc_flux(p8est_t *p8est, element_data_t *data, int nface) {
     element_data_t z;
     init_empty_solver(p8est, &z);
 
-    int nx = 0;
-    int ny = 0;
-    int nz = 0;
+    element_data_t F;
+    init_empty_solver(p8est, &F);
+
+    element_data_t f1;
+    element_data_t f2;
+    element_data_t f3;
 
     /* направление face от соседа к текущей ячейке */
     switch (nface) {
         case 0:                      /* -x side */
             SC_LDEBUG("-x side\n");
-            nx = -1;
+            // f1
+            init_empty_solver(p8est, &f1);
+            // 1/2 * (f1 + f2 - (data + c)(Q - Qi))
             break;
         case 1:                      /* +x side */
             SC_LDEBUG("+x side\n");
-            nx = 1;
+            // f1
+            init_empty_solver(p8est, &f1);
             // ничего не меняется
             break;
         case 2:                      /* -y side */
             SC_LDEBUG("-y side\n");
-            ny = -1;
+            // f2
+            init_empty_solver(p8est, &f2);
             break;
         case 3:                      /* +y side */
             SC_LDEBUG("+y side\n");
-            ny = 1;
+            // f2
+            init_empty_solver(p8est, &f2);
             break;
         case 4:                      /* -z side */
             SC_LDEBUG("-z side\n");
-            nz = -1;
+            // f3
+            init_empty_solver(p8est, &f3);
             break;
         case 5:                      /* +z side */
             SC_LDEBUG("+z side\n");
-            nz = 1;
+            // f3
+            init_empty_solver(p8est, &f3);
             break;
         default:
             SC_LDEBUG("Wrong face");
@@ -134,13 +144,14 @@ void calc_flux_mesh_iter(p8est_t *p8est,
 
                 // TODO test
                 if (neib_face == 3 && data->dummy == 0) {
-                    data->dummy += data_from_face.dummy;
+                    data->dummy = data_from_face.dummy;
                 }
             } else {
                 SC_LDEBUGF("Data: %lf, nface: %d, nrank: %d, cur rank: %d, neib_face: %d\n",
                            ndata->dummy, nface, nrank, p8est->mpirank, neib_face);
 
-                data_from_face = calc_flux(p8est, q, qn, neib_face);
+                // подсчёт потока с фейса
+                data_from_face = calc_flux(p8est, data, neib_face);
 
                 // TODO test
                 // перенос сверху вниз
@@ -150,25 +161,25 @@ void calc_flux_mesh_iter(p8est_t *p8est,
             }
 
             // TODO в отдельную функцию
-            sum_flux.Pressure  += data_from_face.Pressure * Sn;
-            sum_flux.Density   += data_from_face.Density * Sn;
-            sum_flux.u1        += data_from_face.u1 * Sn;
-            sum_flux.u2        += data_from_face.u2 * Sn;
-            sum_flux.u3        += data_from_face.u3 * Sn;
+            sum_flux.Z.Pressure  += data_from_face.Z.Pressure * Sn;
+            sum_flux.Z.Density   += data_from_face.Z.Density * Sn;
+            sum_flux.Z.u1        += data_from_face.Z.u1 * Sn;
+            sum_flux.Z.u2        += data_from_face.Z.u2 * Sn;
+            sum_flux.Z.u3        += data_from_face.Z.u3 * Sn;
         }
 
-        sum_flux.Pressure       = sum_flux.Pressure * ctx->dt / V;
-        sum_flux.Density        = sum_flux.Density * ctx->dt / V;
-        sum_flux.u1             = sum_flux.u1 * ctx->dt / V;
-        sum_flux.u2             = sum_flux.u2 * ctx->dt / V;
-        sum_flux.u3             = sum_flux.u3 * ctx->dt / V;
+        sum_flux.Z.Pressure       = sum_flux.Z.Pressure * ctx->dt / V;
+        sum_flux.Z.Density        = sum_flux.Z.Density * ctx->dt / V;
+        sum_flux.Z.u1             = sum_flux.Z.u1 * ctx->dt / V;
+        sum_flux.Z.u2             = sum_flux.Z.u2 * ctx->dt / V;
+        sum_flux.Z.u3             = sum_flux.Z.u3 * ctx->dt / V;
 
         //
-        data->Pressure          = data->Pressure - sum_flux.Pressure;
-        data->Density           = data->Density - sum_flux.Density;
-        data->u1                = data->u1 - sum_flux.u1;
-        data->u2                = data->u2 - sum_flux.u2;
-        data->u3                = data->u3 - sum_flux.u3;
+        data->Z.Pressure          = data->Z.Pressure - sum_flux.Z.Pressure;
+        data->Z.Density           = data->Z.Density - sum_flux.Z.Density;
+        data->Z.u1                = data->Z.u1 - sum_flux.Z.u1;
+        data->Z.u2                = data->Z.u2 - sum_flux.Z.u2;
+        data->Z.u3                = data->Z.u3 - sum_flux.Z.u3;
 
         updateQ(p8est, data);
 
@@ -282,7 +293,7 @@ void calc_flux_volume_iter(p8est_iter_volume_info_t *info,
         if (is_same_neighbor_exists) {
             element_data_t *data = (element_data_t *) nq[P8EST_HALF].p.user_data;
 
-            SC_PRODUCTIONF("Quad is (%d), neib (%d), value (%d)\n", q->p.which_tree, nq[P8EST_HALF].p.which_tree, data->Pressure);
+            SC_PRODUCTIONF("Quad is (%d), neib (%d), value (%d)\n", q->p.which_tree, nq[P8EST_HALF].p.which_tree, data->Z.Pressure);
         }
 
         is_boundary = !is_small_neighbors_exists && !is_same_neighbor_exists && !is_big_neighbor_exists;

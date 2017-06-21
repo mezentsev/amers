@@ -8,10 +8,12 @@
  * Данные каждой ячейки, которые можно получить через p.user_data
  */
 typedef struct data {
-    double Density;         /* плотность */
-    double Pressure;        /* давление */
-    double u1, u2, u3;      /* значение скорости по x, y, z */
-    double E;               /* полная энергия */
+    struct {
+        double Density;         /* плотность */
+        double Pressure;        /* давление */
+        double u1, u2, u3;      /* значение скорости по x, y, z */
+        double E;               /* полная энергия */
+    } Z;
 
     struct {
         double D;

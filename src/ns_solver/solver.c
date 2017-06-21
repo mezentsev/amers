@@ -7,39 +7,39 @@ void init_solver(p8est_t *p8est, element_data_t *data) {
     context_t *ctx = (context_t *) p8est->user_pointer;
     double e;
 
-    data->Density = 1;
-    data->Pressure = 1;
-    data->u1 = 1.5;
-    data->u2 = 0.1;
-    data->u3 = 0;
+    data->Z.Density = 1;
+    data->Z.Pressure = 1;
+    data->Z.u1 = 1.5;
+    data->Z.u2 = 0.1;
+    data->Z.u3 = 0;
     data->dummy = 0;
 
-    e = data->Pressure / ((ctx->Adiabatic - 1) * data->Density);
-    data->E = e + (pow(data->u1, 2) + pow(data->u2, 2) + pow(data->u3, 2))/2;
+    e = data->Z.Pressure / ((ctx->Adiabatic - 1) * data->Z.Density);
+    data->Z.E = e + (pow(data->Z.u1, 2) + pow(data->Z.u2, 2) + pow(data->Z.u3, 2))/2;
 
     updateQ(p8est, data);
 }
 
 void init_empty_solver(p8est_t *p8est, element_data_t *data) {
-    data->Density = 0;
-    data->Pressure = 0;
-    data->u1 = 0;
-    data->u2 = 0;
-    data->u3 = 0;
+    data->Z.Density = 0;
+    data->Z.Pressure = 0;
+    data->Z.u1 = 0;
+    data->Z.u2 = 0;
+    data->Z.u3 = 0;
     data->dummy = 0;
 
-    data->E = 0;
+    data->Z.E = 0;
 
     updateQ(p8est, data);
 }
 
 void updateQ(p8est_t *p8est, element_data_t *data) {
-    data->Q.D   = data->Density;
-    data->Q.Du1 = data->Density * data->u1;
-    data->Q.Du2 = data->Density * data->u2;
-    data->Q.Du3 = data->Density * data->u3;
+    data->Q.D   = data->Z.Density;
+    data->Q.Du1 = data->Z.Density * data->Z.u1;
+    data->Q.Du2 = data->Z.Density * data->Z.u2;
+    data->Q.Du3 = data->Z.Density * data->Z.u3;
 
-    data->Q.PE  = data->Pressure * data->E;
+    data->Q.PE  = data->Z.Pressure * data->Z.E;
 }
 
 element_data_t get_boundary_data_by_face(p8est_t *p8est,
@@ -60,64 +60,64 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
         case 0:                      /* -x side */
             SC_LDEBUG("-x side\n");
             // втекает
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = data->u2;
-            boundary_data.u3        = data->u3;
+            boundary_data.Z.Density   = data->Z.Density;
+            boundary_data.Z.Pressure  = data->Z.Pressure;
+            boundary_data.Z.u1        = data->Z.u1;
+            boundary_data.Z.u2        = data->Z.u2;
+            boundary_data.Z.u3        = data->Z.u3;
             break;
         case 1:                      /* +x side */
             // вытекает
             SC_LDEBUG("+x side\n");
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = data->u2;
-            boundary_data.u3        = data->u3;
+            boundary_data.Z.Density   = data->Z.Density;
+            boundary_data.Z.Pressure  = data->Z.Pressure;
+            boundary_data.Z.u1        = data->Z.u1;
+            boundary_data.Z.u2        = data->Z.u2;
+            boundary_data.Z.u3        = data->Z.u3;
             break;
         case 2:                      /* -y side */
             SC_LDEBUG("-y side\n");
             // стенка
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = -data->u2;
-            boundary_data.u3        = data->u3;
+            boundary_data.Z.Density   = data->Z.Density;
+            boundary_data.Z.Pressure  = data->Z.Pressure;
+            boundary_data.Z.u1        = data->Z.u1;
+            boundary_data.Z.u2        = -data->Z.u2;
+            boundary_data.Z.u3        = data->Z.u3;
             break;
         case 3:                      /* +y side */
             SC_LDEBUG("+y side\n");
             // стенка
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = -data->u2;
-            boundary_data.u3        = data->u3;
+            boundary_data.Z.Density   = data->Z.Density;
+            boundary_data.Z.Pressure  = data->Z.Pressure;
+            boundary_data.Z.u1        = data->Z.u1;
+            boundary_data.Z.u2        = -data->Z.u2;
+            boundary_data.Z.u3        = data->Z.u3;
             break;
         case 4:                      /* -z side */
             SC_LDEBUG("-z side\n");
             // стенка
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = data->u2;
-            boundary_data.u3        = -data->u3;
+            boundary_data.Z.Density   = data->Z.Density;
+            boundary_data.Z.Pressure  = data->Z.Pressure;
+            boundary_data.Z.u1        = data->Z.u1;
+            boundary_data.Z.u2        = data->Z.u2;
+            boundary_data.Z.u3        = -data->Z.u3;
             break;
         case 5:                      /* +z side */
             SC_LDEBUG("+z side\n");
             // стенка
-            boundary_data.Density   = data->Density;
-            boundary_data.Pressure  = data->Pressure;
-            boundary_data.u1        = data->u1;
-            boundary_data.u2        = data->u2;
-            boundary_data.u3        = -data->u3;
+            boundary_data.Z.Density   = data->Z.Density;
+            boundary_data.Z.Pressure  = data->Z.Pressure;
+            boundary_data.Z.u1        = data->Z.u1;
+            boundary_data.Z.u2        = data->Z.u2;
+            boundary_data.Z.u3        = -data->Z.u3;
             break;
         default:
             SC_ABORT("Wrong face");
     }
 
     // нужно пересчитать энергию по новым данным
-    e = boundary_data.Pressure / ((ctx->Adiabatic - 1) * boundary_data.Density);
-    boundary_data.E = e + (pow(boundary_data.u1, 2) + pow(boundary_data.u2, 2) + pow(boundary_data.u3, 2))/2;
+    e = boundary_data.Z.Pressure / ((ctx->Adiabatic - 1) * boundary_data.Z.Density);
+    boundary_data.Z.E = e + (pow(boundary_data.Z.u1, 2) + pow(boundary_data.Z.u2, 2) + pow(boundary_data.Z.u3, 2))/2;
 
     // Z -> Q
     updateQ(p8est, &boundary_data);
@@ -139,11 +139,11 @@ void cflq(element_data_t *data, context_t *ctx, double length) {
     double t2;
     double t3;
     double dt;
-    double speed_sound = calc_speed_sound(data->Density, data->Pressure, ctx->Adiabatic);
+    double speed_sound = calc_speed_sound(data->Z.Density, data->Z.Pressure, ctx->Adiabatic);
 
-    t1 = length/(fabs(data->u1) + speed_sound);
-    t2 = length/(fabs(data->u2) + speed_sound);
-    t3 = length/(fabs(data->u3) + speed_sound);
+    t1 = length/(fabs(data->Z.u1) + speed_sound);
+    t2 = length/(fabs(data->Z.u2) + speed_sound);
+    t3 = length/(fabs(data->Z.u3) + speed_sound);
 
     dt = 1/(1/t1 + 1/t2 + 1/t3);
 

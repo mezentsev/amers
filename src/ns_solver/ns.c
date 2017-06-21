@@ -55,7 +55,7 @@ void solve(p8est_t *p8est) {
         /* вывод в файл времени вычисление N-ого решения */
         if(p8est->mpirank == 0)
         {
-            snprintf (filename, 17, "solution_%02d.time", i);
+            snprintf (filename, 19, "solution_%04d.time", i);
             file = fopen(filename, "w");
             SC_CHECK_ABORT(file, "Can't write to file");
             fprintf(file, "Solution took %f seconds\n", ((double)clock() - start)/CLOCKS_PER_SEC);
@@ -121,7 +121,7 @@ void get_u1_data(p8est_iter_volume_info_t *info,
 
     for (i = 0; i < P8EST_CHILDREN; i++) {
         this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
-        this_u_ptr[0] = data->u1;
+        this_u_ptr[0] = data->Z.u1;
     }
 }
 
@@ -146,7 +146,7 @@ void get_u2_data(p8est_iter_volume_info_t *info,
 
     for (i = 0; i < P8EST_CHILDREN; i++) {
         this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
-        this_u_ptr[0] = data->u2;
+        this_u_ptr[0] = data->Z.u2;
     }
 }
 
@@ -171,7 +171,7 @@ void get_u3_data(p8est_iter_volume_info_t *info,
 
     for (i = 0; i < P8EST_CHILDREN; i++) {
         this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
-        this_u_ptr[0] = data->u3;
+        this_u_ptr[0] = data->Z.u3;
     }
 }
 
@@ -196,7 +196,7 @@ void get_density_data(p8est_iter_volume_info_t *info,
 
     for (i = 0; i < P8EST_CHILDREN; i++) {
         this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
-        this_u_ptr[0] = data->Density;
+        this_u_ptr[0] = data->Z.Density;
     }
 }
 
@@ -221,7 +221,7 @@ void get_pressure_data(p8est_iter_volume_info_t *info,
 
     for (i = 0; i < P8EST_CHILDREN; i++) {
         this_u_ptr = (double *) sc_array_index (u_interp, array_offset + i);
-        this_u_ptr[0] = data->Pressure;
+        this_u_ptr[0] = data->Z.Pressure;
     }
 }
 
@@ -236,7 +236,7 @@ void write_solution(p8est_t *p8est,
     sc_array_t          *density;
     sc_array_t          *pressure;
 
-    snprintf (filename, 12, "solution_%02d", step);
+    snprintf (filename, 14, "solution_%04d", step);
     numquads = p8est->local_num_quadrants;
 
     /* create a vector with one value for the corner of every local quadrant
@@ -352,7 +352,7 @@ int main (int argc, char **argv) {
     ctx.center[2] = 0.5;
 
     ctx.width = 0.2;
-    ctx.steps = 10;
+    ctx.steps = 200;
     ctx.dt = 0;
     ctx.get_boundary_data_by_face = get_boundary_data_by_face;
 
@@ -383,7 +383,7 @@ int main (int argc, char **argv) {
                            (void *) (&ctx));              /* context */
 
     // TODO сначала проверяем работу алгоритма на регулярной сетке, потом включаем адаптацию
-    p8est_refine(p8est, 1, refine_fn, init);
+    //p8est_refine(p8est, 1, refine_fn, init);
     //p8est_coarsen(p8est, 1, coarsen_fn, init);
 
     p8est_balance(p8est, P4EST_CONNECT_FULL, init);

@@ -84,12 +84,12 @@ void cflq(element_data_t *data, context_t *ctx, double h);
 /**
  * Вычисление потока между двумя соседними ячейками
  *
- * @param cur_quad
- * @param n_quad
+ * @param p8est
+ * @param element_data_t
  * @param face
  * @return значение вектора потока между двумя ячейками
  */
-element_data_t calc_flux(p8est_t *p8est, p8est_quadrant_t *cur_quad, p8est_quadrant_t *n_quad, int face);
+element_data_t calc_flux(p8est_t *p8est, element_data_t *data, int face);
 
 /**
  * Преобразование из Z в Q
