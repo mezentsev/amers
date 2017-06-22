@@ -121,6 +121,6 @@ element_data_t sumZ(p8est_t *p8est, element_data_t *z1, element_data_t *z2);
  * @param adiabatic параметр адиабаты
  * @return
  */
-double calc_speed_sound(double density, double pressure, double adiabatic);
+double calc_speed(double density, double pressure, double adiabatic);
 
 #endif //AMR_SOLVER_H

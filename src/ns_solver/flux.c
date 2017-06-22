@@ -10,7 +10,7 @@ element_data_t calc_flux(p8est_t *p8est, element_data_t *idata, element_data_t *
     //element_data_t  c;
 
     context_t       *ctx    = (context_t *) p8est->user_pointer;
-    //double          sc      = calc_speed_sound(idata->Z.Density, idata->Z.Pressure, ctx->Adiabatic);
+    //double          sc      = calc_speed(idata->Z.Density, idata->Z.Pressure, ctx->Adiabatic);
 
     init_empty_solver(p8est, &F);
     init_empty_solver(p8est, &fsum);

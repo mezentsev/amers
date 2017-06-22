@@ -156,11 +156,11 @@ void cflq(element_data_t *data, context_t *ctx, double length) {
     double t2;
     double t3;
     double dt;
-    double speed_sound = calc_speed_sound(data->Z.Density, data->Z.Pressure, ctx->Adiabatic);
+    double speed = calc_speed(data->Z.Density, data->Z.Pressure, ctx->Adiabatic);
 
-    t1 = length/(fabs(data->Z.u1) + speed_sound);
-    t2 = length/(fabs(data->Z.u2) + speed_sound);
-    t3 = length/(fabs(data->Z.u3) + speed_sound);
+    t1 = length/(fabs(data->Z.u1) + speed);
+    t2 = length/(fabs(data->Z.u2) + speed);
+    t3 = length/(fabs(data->Z.u3) + speed);
 
     if (isnan(t1)) {
         t1 = 1;
@@ -179,7 +179,7 @@ void cflq(element_data_t *data, context_t *ctx, double length) {
     ctx->dt = (ctx->dt == 0) ? dt : SC_MIN(ctx->dt, dt);
 }
 
-double calc_speed_sound(double density, double pressure, double adiabatic) {
+double calc_speed(double density, double pressure, double adiabatic) {
     return sqrt(adiabatic * pressure / density);
 }
 
