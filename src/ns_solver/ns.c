@@ -383,7 +383,7 @@ int main (int argc, char **argv) {
                            (void *) (&ctx));              /* context */
 
     // TODO сначала проверяем работу алгоритма на регулярной сетке, потом включаем адаптацию
-    //p8est_refine(p8est, 1, refine_fn, init);
+    p8est_refine(p8est, 1, refine_fn, init);
     //p8est_coarsen(p8est, 1, coarsen_fn, init);
 
     p8est_balance(p8est, P4EST_CONNECT_FULL, init);

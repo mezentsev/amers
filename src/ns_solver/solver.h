@@ -67,10 +67,13 @@ void init_solver(p8est_t *p8est, element_data_t *q);
 
 /**
  * Инициализация солвера пустыми векторами
- *
- * @param q параметр
  */
 void init_empty_solver(p8est_t *p8est, element_data_t *data);
+
+/**
+ * Инициализация солвера числом
+ */
+void init_solver_by_double(p8est_t *p8est, element_data_t *data, double val);
 
 /**
  * Вычисление временного шага (CFL) для ячейки со стороной h
@@ -85,11 +88,12 @@ void cflq(element_data_t *data, context_t *ctx, double h);
  * Вычисление потока между двумя соседними ячейками
  *
  * @param p8est
- * @param element_data_t
- * @param face
+ * @param idata данные текущей ячейки
+ * @param nadata данные соседа
+ * @param nface направление фейса
  * @return значение вектора потока между двумя ячейками
  */
-element_data_t calc_flux(p8est_t *p8est, element_data_t *data, int face);
+element_data_t calc_flux(p8est_t *p8est, element_data_t *idata, element_data_t *ndata, int nface);
 
 /**
  * Преобразование из Z в Q
@@ -98,6 +102,16 @@ element_data_t calc_flux(p8est_t *p8est, element_data_t *data, int face);
  * @param data
  */
 void updateQ(p8est_t *p8est, element_data_t *data);
+
+/**
+ * Суммирует два Z
+ *
+ * @param p8est
+ * @param z1
+ * @param z2
+ * @return
+ */
+element_data_t sumZ(p8est_t *p8est, element_data_t *z1, element_data_t *z2);
 
 /**
  * Вычисление скорости света

@@ -1,7 +1,6 @@
 #include <math.h>
 #include <sc.h>
 #include "solver.h"
-#include "../util.h"
 
 void init_solver(p8est_t *p8est, element_data_t *data) {
     context_t *ctx = (context_t *) p8est->user_pointer;
@@ -21,14 +20,18 @@ void init_solver(p8est_t *p8est, element_data_t *data) {
 }
 
 void init_empty_solver(p8est_t *p8est, element_data_t *data) {
-    data->Z.Density = 0;
-    data->Z.Pressure = 0;
-    data->Z.u1 = 0;
-    data->Z.u2 = 0;
-    data->Z.u3 = 0;
-    data->dummy = 0;
+    init_solver_by_double(p8est, data, 0.);
+}
 
-    data->Z.E = 0;
+void init_solver_by_double(p8est_t *p8est, element_data_t *data, double val) {
+    data->Z.Density = val;
+    data->Z.Pressure = val;
+    data->Z.u1 = val;
+    data->Z.u2 = val;
+    data->Z.u3 = val;
+    data->dummy = 0.;
+
+    data->Z.E = 0.;
 
     updateQ(p8est, data);
 }
@@ -41,6 +44,21 @@ void updateQ(p8est_t *p8est, element_data_t *data) {
 
     data->Q.PE  = data->Z.Pressure * data->Z.E;
 }
+
+element_data_t sumZ(p8est_t *p8est, element_data_t *z1, element_data_t *z2) {
+    element_data_t result;
+    init_empty_solver(p8est, &result);
+
+    result.Z.Pressure   = z1->Z.Pressure + z2->Z.Pressure;
+    result.Z.Density    = z1->Z.Density + z2->Z.Density;
+    result.Z.u1         = z1->Z.u1 + z2->Z.u1;
+    result.Z.u2         = z1->Z.u2 + z2->Z.u2;
+    result.Z.u3         = z1->Z.u3 + z2->Z.u3;
+
+    updateQ(p8est, &result);
+    return result;
+}
+
 
 element_data_t get_boundary_data_by_face(p8est_t *p8est,
                                          p8est_quadrant_t *q,
@@ -121,7 +139,6 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
 
     // Z -> Q
     updateQ(p8est, &boundary_data);
-
     return boundary_data;
 }
 
@@ -144,6 +161,18 @@ void cflq(element_data_t *data, context_t *ctx, double length) {
     t1 = length/(fabs(data->Z.u1) + speed_sound);
     t2 = length/(fabs(data->Z.u2) + speed_sound);
     t3 = length/(fabs(data->Z.u3) + speed_sound);
+
+    if (isnan(t1)) {
+        t1 = 1;
+    }
+
+    if (isnan(t2)) {
+        t2 = 1;
+    }
+
+    if (isnan(t3)) {
+        t3 = 1;
+    }
 
     dt = 1/(1/t1 + 1/t2 + 1/t3);
 
@@ -184,6 +213,7 @@ void solver_step(p8est_t *p8est,
     /* calc min dt */
     SC_PRODUCTIONF("dt old: %.20lf\n", ctx->dt);
     mpiret = sc_MPI_Allreduce(MPI_IN_PLACE, &ctx->dt, 1, MPI_DOUBLE, MPI_MIN, p8est->mpicomm);
+    P4EST_ASSERT(!isnan(ctx->dt));
     SC_CHECK_MPI(mpiret);
     SC_PRODUCTIONF("dt new: %.20lf\n", ctx->dt);
 
@@ -193,11 +223,6 @@ void solver_step(p8est_t *p8est,
     SC_PRODUCTION("Exchange ended\n");
 
     SC_PRODUCTION("Neighbors iter started\n");
-    //p8est_iterate(p8est, ghost, (void *) ghost_data,        /* вкладываем гостовый слой */
-    //              NULL,//calc_flux_volume_iter,
-    //              calc_flux_face_iter,                      /* обход по фейсам каждой ячейки для высчитывания потока */
-    //              NULL,
-    //              NULL);
     calc_flux_mesh_iter(p8est, mesh, ghost, ghost_data);
     SC_PRODUCTION("Neighbors iter ended\n");
 

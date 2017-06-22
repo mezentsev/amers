@@ -1,8 +1,10 @@
-#ifndef AMR_DATA_H
-#define AMR_DATA_H
+#ifndef NS_DATA_H
+#define NS_DATA_H
 
 #include <p4est_to_p8est.h>
 #include <p8est.h>
+
+#define QSIZE 5
 
 /**
  * Данные каждой ячейки, которые можно получить через p.user_data
@@ -51,4 +53,4 @@ typedef struct context {
     element_data_t (*get_boundary_data_by_face)(p8est_t *p8est, p8est_quadrant_t *q, int face);
 } context_t;
 
-#endif //AMR_DATA_H
+#endif //NS_DATA_H
