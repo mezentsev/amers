@@ -22,7 +22,7 @@ typedef struct data {
         double Du1;
         double Du2;
         double Du3;
-        double PE;
+        double DE;
     } Q;                    /* значение Q */
 
     double dummy;

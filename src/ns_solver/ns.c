@@ -368,8 +368,8 @@ int main (int argc, char **argv) {
     /* These functions are optional.  If called they store the MPI rank as a
      * static variable so subsequent global p4est log messages are only issued
      * from processor zero.  Here we turn off most of the logging; see sc.h. */
-    sc_init (mpicomm, 1, 1, NULL, SC_LP_PRODUCTION);
-    p4est_init(NULL, SC_LP_PRODUCTION);
+    sc_init (mpicomm, 1, 1, NULL, SC_LP_DEBUG);
+    p4est_init(NULL, SC_LP_DEBUG);
 
     conn = p8est_connectivity_new_unitcube();
 
@@ -383,7 +383,7 @@ int main (int argc, char **argv) {
                            (void *) (&ctx));              /* context */
 
     // TODO сначала проверяем работу алгоритма на регулярной сетке, потом включаем адаптацию
-    p8est_refine(p8est, 1, refine_fn, init);
+    //p8est_refine(p8est, 1, refine_fn, init);
     //p8est_coarsen(p8est, 1, coarsen_fn, init);
 
     p8est_balance(p8est, P4EST_CONNECT_FULL, init);

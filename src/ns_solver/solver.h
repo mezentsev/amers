@@ -84,6 +84,9 @@ void init_solver_by_double(p8est_t *p8est, element_data_t *data, double val);
  */
 void cflq(element_data_t *data, context_t *ctx, double h);
 
+void calc_flux_local(p8est_t *p8est, element_data_t *f, element_data_t *data, int face);
+void calc_flux_local_trans(p8est_t *p8est, element_data_t *f, element_data_t *data, int face);
+
 /**
  * Вычисление потока между двумя соседними ячейками
  *

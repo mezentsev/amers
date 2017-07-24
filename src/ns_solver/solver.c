@@ -15,12 +15,12 @@ void init_solver(p8est_t *p8est, element_data_t *data) {
                &data->Z.Density, &data->Z.Pressure, &data->Z.u1, &data->Z.u2, &data->Z.u3, &data->dummy);
         fclose(file);
     } else {
-        data->Z.Density = 1;
-        data->Z.Pressure = 1;
-        data->Z.u1 = 1;
-        data->Z.u2 = 1;
-        data->Z.u3 = 1;
-        data->dummy = 1;
+        data->Z.Density     = 1;
+        data->Z.Pressure    = 1;
+        data->Z.u1          = 1;
+        data->Z.u2          = 1;
+        data->Z.u3          = 1;
+        data->dummy         = 1;
     }
 
     SC_LDEBUGF("Solver initialized by:\nDensity: %lf\nPressure: %lf\nu1: %lf\nu2: %lf\nu3: %lf\nSome dummy value: %lf\"\n",
@@ -28,8 +28,6 @@ void init_solver(p8est_t *p8est, element_data_t *data) {
 
     e = data->Z.Pressure / ((ctx->Adiabatic - 1) * data->Z.Density);
     data->Z.E = e + (pow(data->Z.u1, 2) + pow(data->Z.u2, 2) + pow(data->Z.u3, 2))/2;
-
-    //updateQ(p8est, data);
 }
 
 void init_empty_solver(p8est_t *p8est, element_data_t *data) {
@@ -45,8 +43,6 @@ void init_solver_by_double(p8est_t *p8est, element_data_t *data, double val) {
     data->dummy = 0.;
 
     data->Z.E = 0.;
-
-    //updateQ(p8est, data);
 }
 
 void updateQ(p8est_t *p8est, element_data_t *data) {
@@ -55,22 +51,21 @@ void updateQ(p8est_t *p8est, element_data_t *data) {
     data->Q.Du2 = data->Z.Density * data->Z.u2;
     data->Q.Du3 = data->Z.Density * data->Z.u3;
 
-    data->Q.PE  = data->Z.Pressure * data->Z.E;
+    data->Q.DE  = data->Z.Density * data->Z.E;
 }
 
 element_data_t sumZ(p8est_t *p8est, element_data_t *z1, element_data_t *z2) {
     element_data_t result;
     init_empty_solver(p8est, &result);
 
-    result.Z.Pressure   = z1->Z.Pressure + z2->Z.Pressure;
-    result.Z.Density    = z1->Z.Density + z2->Z.Density;
-    result.Z.u1         = z1->Z.u1 + z2->Z.u1;
-    result.Z.u2         = z1->Z.u2 + z2->Z.u2;
-    result.Z.u3         = z1->Z.u3 + z2->Z.u3;
+    result.Z.Pressure   = z1->Z.Pressure    + z2->Z.Pressure;
+    result.Z.Density    = z1->Z.Density     + z2->Z.Density;
+    result.Z.u1         = z1->Z.u1          + z2->Z.u1;
+    result.Z.u2         = z1->Z.u2          + z2->Z.u2;
+    result.Z.u3         = z1->Z.u3          + z2->Z.u3;
 
     return result;
 }
-
 
 element_data_t get_boundary_data_by_face(p8est_t *p8est,
                                          p8est_quadrant_t *q,
@@ -150,36 +145,6 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
     boundary_data.Z.E = e + (pow(boundary_data.Z.u1, 2) + pow(boundary_data.Z.u2, 2) + pow(boundary_data.Z.u3, 2))/2;
 
     return boundary_data;
-}
-
-void cflq(element_data_t *data, context_t *ctx, double length) {
-    P4EST_ASSERT(length > 0);
-
-    double t1;
-    double t2;
-    double t3;
-    double dt;
-    double speed = calc_speed(data->Z.Density, data->Z.Pressure, ctx->Adiabatic);
-
-    t1 = length/(fabs(data->Z.u1) + speed);
-    t2 = length/(fabs(data->Z.u2) + speed);
-    t3 = length/(fabs(data->Z.u3) + speed);
-
-    if (isnan(t1)) {
-        t1 = 1;
-    }
-
-    if (isnan(t2)) {
-        t2 = 1;
-    }
-
-    if (isnan(t3)) {
-        t3 = 1;
-    }
-
-    dt = 1/(1/t1 + 1/t2 + 1/t3);
-
-    ctx->dt = (ctx->dt == 0) ? dt : SC_MIN(ctx->dt, dt);
 }
 
 double calc_speed(double density, double pressure, double adiabatic) {

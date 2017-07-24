@@ -3,18 +3,173 @@
 #include "../util.h"
 #include "data.h"
 
+void calc_flux_local(p8est_t *p8est, element_data_t *f, element_data_t *data, int face) {
+    double          e;
+    context_t       *ctx    = (context_t *) p8est->user_pointer;
+
+    /* направление face от соседа(-n) к текущей ячейке(-i) */
+    SC_LDEBUGF("face %d for -x and +x side\n", face);
+
+    switch (face) {
+        case 0:                      /* -x side */
+            f->Z.Density    = data->Z.Density * data->Z.u1;
+
+            f->Z.u1         = (-1) * (data->Z.Density * data->Z.u1 * data->Z.u1 + data->Z.Pressure);
+            f->Z.u2         = (+1) * (data->Z.Density * data->Z.u1 * data->Z.u2);
+            f->Z.u3         = (-1) * (data->Z.Density * data->Z.u1 * data->Z.u3);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u1 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 1:                      /* +x side */
+            f->Z.Density    = data->Z.Density * data->Z.u1;
+
+            f->Z.u1         = data->Z.Density * data->Z.u1 * data->Z.u1 + data->Z.Pressure;
+            f->Z.u2         = data->Z.Density * data->Z.u1 * data->Z.u2;
+            f->Z.u3         = data->Z.Density * data->Z.u1 * data->Z.u3;
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u1 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 2:                      /* -y side */
+            f->Z.Density    = data->Z.Density * data->Z.u2;
+
+            f->Z.u1         = (+1) * (data->Z.Density * data->Z.u2 * data->Z.u2 + data->Z.Pressure);
+            f->Z.u2         = (-1) * (data->Z.Density * data->Z.u2 * data->Z.u1);
+            f->Z.u3         = (+1) * (data->Z.Density * data->Z.u2 * data->Z.u3);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u2 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 3:                      /* +y side */
+            f->Z.Density    = data->Z.Density * data->Z.u2;
+
+            f->Z.u1         = (-1) * (data->Z.Density * data->Z.u2 * data->Z.u2 + data->Z.Pressure);
+            f->Z.u2         = (+1) * (data->Z.Density * data->Z.u2 * data->Z.u1);
+            f->Z.u3         = (+1) * (data->Z.Density * data->Z.u2 * data->Z.u3);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u2 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 4:                      /* -z side */
+            f->Z.Density    = data->Z.Density * data->Z.u3;
+
+            f->Z.u1         = (+1) * (data->Z.Density * data->Z.u3 * data->Z.u3 + data->Z.Pressure);
+            f->Z.u2         = (+1) * (data->Z.Density * data->Z.u3 * data->Z.u2);
+            f->Z.u3         = (-1) * (data->Z.Density * data->Z.u3 * data->Z.u1);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u3 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 5:                      /* +z side */
+            f->Z.Density    = data->Z.Density * data->Z.u3;
+
+            f->Z.u1         = (-1) * (data->Z.Density * data->Z.u3 * data->Z.u3 + data->Z.Pressure);
+            f->Z.u2         = (+1) * (data->Z.Density * data->Z.u3 * data->Z.u2);
+            f->Z.u3         = (+1) * (data->Z.Density * data->Z.u3 * data->Z.u1);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u3 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        default:
+            SC_ABORT("Wrong face");
+    }
+
+    e = data->Z.Pressure / ((ctx->Adiabatic - 1) * data->Z.Density);
+    data->Z.E = e + (pow(data->Z.u1, 2) + pow(data->Z.u2, 2) + pow(data->Z.u3, 2))/2;
+
+    updateQ(p8est, f);
+}
+
+void calc_flux_local_trans(p8est_t *p8est, element_data_t *f, element_data_t *data, int face) {
+    double          e;
+    context_t       *ctx    = (context_t *) p8est->user_pointer;
+
+    /* направление face от соседа(-n) к текущей ячейке(-i) */
+    SC_LDEBUGF("face %d for -x and +x side\n", face);
+
+    switch (face) {
+        case 0:                      /* -x side */
+            f->Z.Density    = data->Z.Density * data->Z.u1;
+
+            f->Z.u1         = (-1) * (data->Z.Density * data->Z.u1 * data->Z.u1 + data->Z.Pressure);
+            f->Z.u2         = (+1) * (data->Z.Density * data->Z.u1 * data->Z.u2);
+            f->Z.u3         = (-1) * (data->Z.Density * data->Z.u1 * data->Z.u3);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u1 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 1:                      /* +x side */
+            f->Z.Density    = data->Z.Density * data->Z.u1;
+
+            f->Z.u1         = data->Z.Density * data->Z.u1 * data->Z.u1 + data->Z.Pressure;
+            f->Z.u2         = data->Z.Density * data->Z.u1 * data->Z.u2;
+            f->Z.u3         = data->Z.Density * data->Z.u1 * data->Z.u3;
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u1 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 2:                      /* -y side */
+            f->Z.Density    = data->Z.Density * data->Z.u2;
+
+            f->Z.u1         = (-1) * (data->Z.Density * data->Z.u2 * data->Z.u1);
+            f->Z.u2         = (+1) * (data->Z.Density * data->Z.u2 * data->Z.u2 + data->Z.Pressure);
+            f->Z.u3         = (+1) * (data->Z.Density * data->Z.u2 * data->Z.u3);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u2 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 3:                      /* +y side */
+            f->Z.Density    = data->Z.Density * data->Z.u2;
+
+            f->Z.u1         = (+1) * (data->Z.Density * data->Z.u2 * data->Z.u1);
+            f->Z.u2         = (-1) * (data->Z.Density * data->Z.u2 * data->Z.u2 + data->Z.Pressure);
+            f->Z.u3         = (+1) * (data->Z.Density * data->Z.u2 * data->Z.u3);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u2 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 4:                      /* -z side */
+            f->Z.Density    = data->Z.Density * data->Z.u3;
+
+            f->Z.u1         = (-1) * (data->Z.Density * data->Z.u3 * data->Z.u1);
+            f->Z.u2         = (+1) * (data->Z.Density * data->Z.u3 * data->Z.u2);
+            f->Z.u3         = (+1) * (data->Z.Density * data->Z.u3 * data->Z.u3 + data->Z.Pressure);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u3 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        case 5:                      /* +z side */
+            f->Z.Density    = data->Z.Density * data->Z.u3;
+
+            f->Z.u1         = (+1) * (data->Z.Density * data->Z.u3 * data->Z.u1);
+            f->Z.u2         = (+1) * (data->Z.Density * data->Z.u3 * data->Z.u2);
+            f->Z.u3         = (-1) * (data->Z.Density * data->Z.u3 * data->Z.u3 + data->Z.Pressure);
+
+            f->Z.Pressure   = data->Z.Density * data->Z.u3 * (data->Z.E + data->Z.Pressure / data->Z.Density);
+
+            break;
+        default:
+            SC_ABORT("Wrong face");
+    }
+
+    e = data->Z.Pressure / ((ctx->Adiabatic - 1) * data->Z.Density);
+    data->Z.E = e + (pow(data->Z.u1, 2) + pow(data->Z.u2, 2) + pow(data->Z.u3, 2))/2;
+
+    updateQ(p8est, f);
+}
+
 element_data_t calc_flux(p8est_t *p8est, element_data_t *idata, element_data_t *ndata, int nface) {
-    element_data_t  F;
+    element_data_t  F, FnotTrans;
     element_data_t  fi, fn;
     element_data_t  fsum;
-    //element_data_t  c;
 
     context_t       *ctx    = (context_t *) p8est->user_pointer;
     double          sc      = calc_speed(idata->Z.Density, idata->Z.Pressure, ctx->Adiabatic);
 
     init_empty_solver(p8est, &F);
+    init_empty_solver(p8est, &FnotTrans);
     init_empty_solver(p8est, &fsum);
-    //init_solver_by_double(p8est, &c, sc);
 
     init_empty_solver(p8est, &fi);
     init_empty_solver(p8est, &fn);
@@ -22,59 +177,8 @@ element_data_t calc_flux(p8est_t *p8est, element_data_t *idata, element_data_t *
     SC_INFOF("Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
                    F.Z.Density, F.Z.u1, F.Z.u2, F.Z.u3, F.Z.Pressure);
 
-    // Z + c
-    //sumZ(p8est, &c, idata);
-
-    /* направление face от соседа(-n) к текущей ячейке(-i) */
-    switch (nface) {
-        case 0:                      /* -x side */
-        case 1:                      /* +x side */
-            SC_LDEBUGF("face %d for -x and +x side\n", nface);
-            fi.Z.Density    = idata->Z.Density * idata->Z.u1;
-            fi.Z.u1         = idata->Z.Density * idata->Z.u1 * idata->Z.u1 + idata->Z.Pressure;
-            fi.Z.u2         = idata->Z.Density * idata->Z.u1 * idata->Z.u2;
-            fi.Z.u3         = idata->Z.Density * idata->Z.u1 * idata->Z.u3;
-            fi.Z.Pressure   = idata->Z.Density * idata->Z.u1 * (idata->Z.E + idata->Z.Pressure / idata->Z.Density);
-
-            fn.Z.Density    = ndata->Z.Density * ndata->Z.u1;
-            fn.Z.u1         = ndata->Z.Density * ndata->Z.u1 * ndata->Z.u1 + ndata->Z.Pressure;
-            fn.Z.u2         = ndata->Z.Density * ndata->Z.u1 * ndata->Z.u2;
-            fn.Z.u3         = ndata->Z.Density * ndata->Z.u1 * ndata->Z.u3;
-            fn.Z.Pressure   = ndata->Z.Density * ndata->Z.u1 * (ndata->Z.E + ndata->Z.Pressure / ndata->Z.Density);
-            break;
-        case 2:                      /* -y side */
-        case 3:                      /* +y side */
-            SC_LDEBUGF("face %d for -y and +y side\n", nface);
-            fi.Z.Density    = idata->Z.Density * idata->Z.u2;
-            fi.Z.u1         = idata->Z.Density * idata->Z.u2 * idata->Z.u1;
-            fi.Z.u2         = idata->Z.Density * idata->Z.u2 * idata->Z.u2 + idata->Z.Pressure;
-            fi.Z.u3         = idata->Z.Density * idata->Z.u2 * idata->Z.u3;
-            fi.Z.Pressure   = idata->Z.Density * idata->Z.u2 * (idata->Z.E + idata->Z.Pressure / idata->Z.Density);
-
-            fn.Z.Density    = ndata->Z.Density * ndata->Z.u2;
-            fn.Z.u1         = ndata->Z.Density * ndata->Z.u2 * ndata->Z.u1;
-            fn.Z.u2         = ndata->Z.Density * ndata->Z.u2 * ndata->Z.u2 + ndata->Z.Pressure;
-            fn.Z.u3         = ndata->Z.Density * ndata->Z.u2 * ndata->Z.u3;
-            fn.Z.Pressure   = ndata->Z.Density * ndata->Z.u2 * (ndata->Z.E + ndata->Z.Pressure / ndata->Z.Density);
-            break;
-        case 4:                      /* -z side */
-        case 5:                      /* +z side */
-            SC_LDEBUGF("face %d for -z and +z side\n", nface);
-            fi.Z.Density    = idata->Z.Density * idata->Z.u3;
-            fi.Z.u1         = idata->Z.Density * idata->Z.u3 * idata->Z.u1;
-            fi.Z.u2         = idata->Z.Density * idata->Z.u3 * idata->Z.u2;
-            fi.Z.u3         = idata->Z.Density * idata->Z.u3 * idata->Z.u3 + idata->Z.Pressure;
-            fi.Z.Pressure   = idata->Z.Density * idata->Z.u3 * (idata->Z.E + idata->Z.Pressure / idata->Z.Density);
-
-            fn.Z.Density    = ndata->Z.Density * ndata->Z.u3;
-            fn.Z.u1         = ndata->Z.Density * ndata->Z.u3 * ndata->Z.u1;
-            fn.Z.u2         = ndata->Z.Density * ndata->Z.u3 * ndata->Z.u2;
-            fn.Z.u3         = ndata->Z.Density * ndata->Z.u3 * ndata->Z.u3 + ndata->Z.Pressure;
-            fn.Z.Pressure   = ndata->Z.Density * ndata->Z.u3 * (ndata->Z.E + ndata->Z.Pressure / ndata->Z.Density);
-            break;
-        default:
-            SC_ABORT("Wrong face");
-    }
+    calc_flux_local(p8est, &fi, idata, nface);
+    calc_flux_local(p8est, &fn, ndata, nface);
 
     SC_INFOF("[fi] Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
                    fi.Z.Density, fi.Z.u1, fi.Z.u2, fi.Z.u3, fi.Z.Pressure);
@@ -82,16 +186,13 @@ element_data_t calc_flux(p8est_t *p8est, element_data_t *idata, element_data_t *
     SC_INFOF("[fn] Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
                    fn.Z.Density, fn.Z.u1, fn.Z.u2, fn.Z.u3, fn.Z.Pressure);
 
-    fsum = sumZ(p8est, &fi, &fn);
+    FnotTrans.Z.Density     = 0.5 * (fi.Z.Density   + fn.Z.Density  - (fi.Z.Density     + sc) * (fn.Q.D   - fi.Q.D));
+    FnotTrans.Z.u1          = 0.5 * (fi.Z.u1        + fn.Z.u1       - (fi.Z.u1          + sc) * (fn.Q.Du1 - fi.Q.Du1));
+    FnotTrans.Z.u2          = 0.5 * (fi.Z.u2        + fn.Z.u2       - (fi.Z.u2          + sc) * (fn.Q.Du2 - fi.Q.Du2));
+    FnotTrans.Z.u3          = 0.5 * (fi.Z.u3        + fn.Z.u3       - (fi.Z.u3          + sc) * (fn.Q.Du3 - fi.Q.Du3));
+    FnotTrans.Z.Pressure    = 0.5 * (fi.Z.Pressure  + fn.Z.Pressure - (fi.Z.Pressure    + sc) * (fn.Q.DE  - fi.Q.DE));
 
-    SC_INFOF("[fsum] Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
-                   fsum.Z.Density, fsum.Z.u1, fsum.Z.u2, fsum.Z.u3, fsum.Z.Pressure);
-
-    F.Z.Density     = 0.5 * (fsum.Z.Density - (ndata->Q.D - ndata->Q.D));
-    F.Z.u1          = 0.5 * (fsum.Z.u1 - (ndata->Q.D - ndata->Q.D));
-    F.Z.u2          = 0.5 * (fsum.Z.u2 - (ndata->Q.D - ndata->Q.D));
-    F.Z.u3          = 0.5 * (fsum.Z.u3 - (ndata->Q.D - ndata->Q.D));
-    F.Z.Pressure    = 0.5 * (fsum.Z.Pressure - (ndata->Q.D - ndata->Q.D));
+    calc_flux_local_trans(p8est, &F, &FnotTrans, nface);
 
     SC_INFOF("[FLUX] Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
                    F.Z.Density, F.Z.u1, F.Z.u2, F.Z.u3, F.Z.Pressure);
@@ -121,6 +222,7 @@ void calc_flux_mesh_iter(p8est_t *p8est,
     int                         nwhich_tree = -1;
     double                      nh; // сторона соседа
 
+    double                      e;
     int                         is_boundary = 0;
     double                      V; // объём текущей ячейки
     double                      Sn; // площадь между соседом и текущей ячейкой
@@ -218,18 +320,18 @@ void calc_flux_mesh_iter(p8est_t *p8est,
                 }
             }
 
-            sum_flux.Z.Pressure  += from_neighbor_flux.Z.Pressure * Sn;
-            sum_flux.Z.Density   += from_neighbor_flux.Z.Density * Sn;
-            sum_flux.Z.u1        += from_neighbor_flux.Z.u1 * Sn;
-            sum_flux.Z.u2        += from_neighbor_flux.Z.u2 * Sn;
-            sum_flux.Z.u3        += from_neighbor_flux.Z.u3 * Sn;
+            sum_flux.Z.Pressure  += from_neighbor_flux.Z.Pressure   * Sn;
+            sum_flux.Z.Density   += from_neighbor_flux.Z.Density    * Sn;
+            sum_flux.Z.u1        += from_neighbor_flux.Z.u1         * Sn;
+            sum_flux.Z.u2        += from_neighbor_flux.Z.u2         * Sn;
+            sum_flux.Z.u3        += from_neighbor_flux.Z.u3         * Sn;
         }
 
         sum_flux.Z.Pressure       = sum_flux.Z.Pressure * ctx->dt / V;
-        sum_flux.Z.Density        = sum_flux.Z.Density * ctx->dt / V;
-        sum_flux.Z.u1             = sum_flux.Z.u1 * ctx->dt / V;
-        sum_flux.Z.u2             = sum_flux.Z.u2 * ctx->dt / V;
-        sum_flux.Z.u3             = sum_flux.Z.u3 * ctx->dt / V;
+        sum_flux.Z.Density        = sum_flux.Z.Density  * ctx->dt / V;
+        sum_flux.Z.u1             = sum_flux.Z.u1       * ctx->dt / V;
+        sum_flux.Z.u2             = sum_flux.Z.u2       * ctx->dt / V;
+        sum_flux.Z.u3             = sum_flux.Z.u3       * ctx->dt / V;
 
         SC_INFOF("[old z] Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
                        data->Z.Density, data->Z.u1, data->Z.u2, data->Z.u3, data->Z.Pressure);
@@ -238,14 +340,19 @@ void calc_flux_mesh_iter(p8est_t *p8est,
                        sum_flux.Z.Density, sum_flux.Z.u1, sum_flux.Z.u2, sum_flux.Z.u3, sum_flux.Z.Pressure);
 
         //
-        data->Z.Pressure          = data->Z.Pressure - sum_flux.Z.Pressure;
-        data->Z.Density           = data->Z.Density - sum_flux.Z.Density;
-        data->Z.u1                = data->Z.u1 - sum_flux.Z.u1;
-        data->Z.u2                = data->Z.u2 - sum_flux.Z.u2;
-        data->Z.u3                = data->Z.u3 - sum_flux.Z.u3;
+        data->Z.Pressure          = data->Z.Pressure    - sum_flux.Z.Pressure;
+        data->Z.Density           = data->Z.Density     - sum_flux.Z.Density;
+        data->Z.u1                = data->Z.u1          - sum_flux.Z.u1;
+        data->Z.u2                = data->Z.u2          - sum_flux.Z.u2;
+        data->Z.u3                = data->Z.u3          - sum_flux.Z.u3;
 
         SC_INFOF("[new z] Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
                        data->Z.Density, data->Z.u1, data->Z.u2, data->Z.u3, data->Z.Pressure);
+
+        // Qn
+        e = data->Z.Pressure / ((ctx->Adiabatic - 1) * data->Z.Density);
+        data->Z.E = e + (pow(data->Z.u1, 2) + pow(data->Z.u2, 2) + pow(data->Z.u3, 2))/2;
+        updateQ(p8est, data);
 
         SC_LDEBUG("*****************\n");
     }
