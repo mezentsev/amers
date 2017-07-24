@@ -1,5 +1,5 @@
-#ifndef AMR_SOLVER_H
-#define AMR_SOLVER_H
+#ifndef NS_SOLVER_H
+#define NS_SOLVER_H
 
 #include "data.h"
 #include "ns.h"
@@ -123,4 +123,4 @@ element_data_t sumZ(p8est_t *p8est, element_data_t *z1, element_data_t *z2);
  */
 double calc_speed(double density, double pressure, double adiabatic);
 
-#endif //AMR_SOLVER_H
+#endif

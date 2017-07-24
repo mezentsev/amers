@@ -1,22 +1,35 @@
 #include <math.h>
 #include <sc.h>
 #include "solver.h"
+#include "data.h"
 
 void init_solver(p8est_t *p8est, element_data_t *data) {
     context_t *ctx = (context_t *) p8est->user_pointer;
     double e;
+    FILE* file;
+    char filename[MAX_INPUT] = "simple.data";
 
-    data->Z.Density = 1;
-    data->Z.Pressure = 1;
-    data->Z.u1 = 1.5;
-    data->Z.u2 = 0.1;
-    data->Z.u3 = 0;
-    data->dummy = 0;
+    file = fopen(filename, "r");
+    if (file != NULL) {
+        fscanf(file, "%lf %lf %lf %lf %lf %lf",
+               &data->Z.Density, &data->Z.Pressure, &data->Z.u1, &data->Z.u2, &data->Z.u3, &data->dummy);
+        fclose(file);
+    } else {
+        data->Z.Density = 1;
+        data->Z.Pressure = 1;
+        data->Z.u1 = 1;
+        data->Z.u2 = 1;
+        data->Z.u3 = 1;
+        data->dummy = 1;
+    }
+
+    SC_LDEBUGF("Solver initialized by:\nDensity: %lf\nPressure: %lf\nu1: %lf\nu2: %lf\nu3: %lf\nSome dummy value: %lf\"\n",
+             data->Z.Density, data->Z.Pressure, data->Z.u1, data->Z.u2, data->Z.u3, data->dummy);
 
     e = data->Z.Pressure / ((ctx->Adiabatic - 1) * data->Z.Density);
     data->Z.E = e + (pow(data->Z.u1, 2) + pow(data->Z.u2, 2) + pow(data->Z.u3, 2))/2;
 
-    updateQ(p8est, data);
+    //updateQ(p8est, data);
 }
 
 void init_empty_solver(p8est_t *p8est, element_data_t *data) {
@@ -33,7 +46,7 @@ void init_solver_by_double(p8est_t *p8est, element_data_t *data, double val) {
 
     data->Z.E = 0.;
 
-    updateQ(p8est, data);
+    //updateQ(p8est, data);
 }
 
 void updateQ(p8est_t *p8est, element_data_t *data) {
@@ -55,7 +68,6 @@ element_data_t sumZ(p8est_t *p8est, element_data_t *z1, element_data_t *z2) {
     result.Z.u2         = z1->Z.u2 + z2->Z.u2;
     result.Z.u3         = z1->Z.u3 + z2->Z.u3;
 
-    updateQ(p8est, &result);
     return result;
 }
 
@@ -137,18 +149,9 @@ element_data_t get_boundary_data_by_face(p8est_t *p8est,
     e = boundary_data.Z.Pressure / ((ctx->Adiabatic - 1) * boundary_data.Z.Density);
     boundary_data.Z.E = e + (pow(boundary_data.Z.u1, 2) + pow(boundary_data.Z.u2, 2) + pow(boundary_data.Z.u3, 2))/2;
 
-    // Z -> Q
-    updateQ(p8est, &boundary_data);
     return boundary_data;
 }
 
-/**
- * Условие устойчивости (CFL - Куранта-Фридриха-Леви)
- *
- * @param data данные ячейки
- * @param ctx контекст. в dt записывается курантовый шаг
- * @param length сторона ячейки
- */
 void cflq(element_data_t *data, context_t *ctx, double length) {
     P4EST_ASSERT(length > 0);
 

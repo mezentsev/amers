@@ -10,7 +10,7 @@ element_data_t calc_flux(p8est_t *p8est, element_data_t *idata, element_data_t *
     //element_data_t  c;
 
     context_t       *ctx    = (context_t *) p8est->user_pointer;
-    //double          sc      = calc_speed(idata->Z.Density, idata->Z.Pressure, ctx->Adiabatic);
+    double          sc      = calc_speed(idata->Z.Density, idata->Z.Pressure, ctx->Adiabatic);
 
     init_empty_solver(p8est, &F);
     init_empty_solver(p8est, &fsum);
@@ -76,9 +76,6 @@ element_data_t calc_flux(p8est_t *p8est, element_data_t *idata, element_data_t *
             SC_ABORT("Wrong face");
     }
 
-    updateQ(p8est, &fi);
-    updateQ(p8est, &fn);
-
     SC_INFOF("[fi] Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
                    fi.Z.Density, fi.Z.u1, fi.Z.u2, fi.Z.u3, fi.Z.Pressure);
 
@@ -98,8 +95,6 @@ element_data_t calc_flux(p8est_t *p8est, element_data_t *idata, element_data_t *
 
     SC_INFOF("[FLUX] Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
                    F.Z.Density, F.Z.u1, F.Z.u2, F.Z.u3, F.Z.Pressure);
-
-    updateQ(p8est, &F);
 
     return F;
 }
@@ -251,8 +246,6 @@ void calc_flux_mesh_iter(p8est_t *p8est,
 
         SC_INFOF("[new z] Density: %lf; u1: %lf; u2: %lf; u3: %lf; Pressure: %lf\n",
                        data->Z.Density, data->Z.u1, data->Z.u2, data->Z.u3, data->Z.Pressure);
-
-        updateQ(p8est, data);
 
         SC_LDEBUG("*****************\n");
     }

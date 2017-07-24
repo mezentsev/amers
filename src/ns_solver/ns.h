@@ -2,8 +2,8 @@
 // Created by Vadim Mezentsev on 01.01.17.
 //
 
-#ifndef AMR_NS_H
-#define AMR_NS_H
+#ifndef NS_H
+#define NS_H
 
 #include <p4est_to_p8est.h>
 #include <p8est.h>
@@ -40,4 +40,4 @@
 void write_solution(p8est_t *p8est,
                     int step);
 
-#endif //AMR_NS_H
+#endif //NS_H
